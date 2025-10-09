@@ -1,0 +1,173 @@
+/* VOXY Design System - Corporate Sophisticated Theme */
+
+/* VOXY-specific color variables */
+:root {
+  /* VOXY Brand Colors */
+  --voxy-primary: #3b82f6;      /* Blue 500 */
+  --voxy-primary-dark: #1e40af;  /* Blue 700 */
+  --voxy-primary-light: #93c5fd; /* Blue 300 */
+  
+  /* Agent Colors - Multi-agent identification */
+  --voxy-agent-translator: #10b981;  /* Emerald 500 */
+  --voxy-agent-corrector: #8b5cf6;   /* Violet 500 */
+  --voxy-agent-weather: #06b6d4;     /* Cyan 500 */
+  --voxy-agent-calculator: #f59e0b;  /* Amber 500 */
+  --voxy-agent-voxy: #3b82f6;        /* Blue 500 */
+  
+  /* Status Colors */
+  --voxy-success: #22c55e;
+  --voxy-warning: #f59e0b;
+  --voxy-error: #ef4444;
+  --voxy-info: #3b82f6;
+  
+  /* Chat-specific variables */
+  --voxy-chat-user-bg: var(--voxy-primary);
+  --voxy-chat-agent-bg: var(--muted);
+  --voxy-chat-bubble-radius: 1rem;
+  --voxy-chat-spacing: 1rem;
+}
+
+.dark {
+  /* Dark mode adjustments for agent colors */
+  --voxy-agent-translator: #34d399;  /* Emerald 400 */
+  --voxy-agent-corrector: #a78bfa;   /* Violet 400 */
+  --voxy-agent-weather: #22d3ee;     /* Cyan 400 */
+  --voxy-agent-calculator: #fbbf24;  /* Amber 400 */
+  
+  --voxy-chat-agent-bg: var(--card);
+}
+
+/* Typography improvements for conversations */
+.voxy-chat-text {
+  @apply text-base leading-relaxed;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+.voxy-chat-text-lg {
+  @apply text-lg leading-relaxed;
+}
+
+/* Agent-specific utility classes */
+.voxy-agent-translator {
+  @apply text-emerald-600 dark:text-emerald-400;
+}
+
+.voxy-agent-corrector {
+  @apply text-violet-600 dark:text-violet-400;
+}
+
+.voxy-agent-weather {
+  @apply text-cyan-600 dark:text-cyan-400;
+}
+
+.voxy-agent-calculator {
+  @apply text-amber-600 dark:text-amber-400;
+}
+
+.voxy-agent-voxy {
+  @apply text-blue-600 dark:text-blue-400;
+}
+
+/* Chat bubble variations */
+.voxy-chat-bubble-user {
+  @apply bg-primary text-primary-foreground;
+  border-radius: var(--voxy-chat-bubble-radius);
+}
+
+.voxy-chat-bubble-agent {
+  @apply bg-muted text-foreground;
+  border-radius: var(--voxy-chat-bubble-radius);
+}
+
+/* Smooth animations for chat */
+.voxy-fade-in {
+  animation: voxyFadeIn 0.3s ease-out;
+}
+
+.voxy-slide-up {
+  animation: voxySlideUp 0.4s ease-out;
+}
+
+@keyframes voxyFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes voxySlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Loading states */
+.voxy-typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+}
+
+.voxy-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--muted-foreground);
+  animation: voxyTyping 1.4s infinite ease-in-out;
+}
+
+.voxy-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.voxy-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes voxyTyping {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Connection status indicators */
+.voxy-status-connected {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.voxy-status-connecting {
+  @apply text-yellow-600 dark:text-yellow-400;
+}
+
+.voxy-status-disconnected {
+  @apply text-red-600 dark:text-red-400;
+}
+
+/* Responsive chat layout */
+.voxy-chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100dvh; /* For mobile viewports */
+}
+
+@media (max-width: 768px) {
+  .voxy-chat-bubble-user,
+  .voxy-chat-bubble-agent {
+    max-width: 85%;
+  }
+  
+  .voxy-chat-text {
+    @apply text-sm;
+  }
+}

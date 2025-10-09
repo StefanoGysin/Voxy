@@ -1,0 +1,148 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useAuthStore } from '@/lib/store/auth-store'
+import { AuthService } from '@/lib/auth/auth-service'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import Link from 'next/link'
+import EnhancedOSDashboard from '@/components/os/EnhancedOSDashboard'
+
+// VOXY OS for authenticated users
+function VoxyOS() {
+  return (
+    <main className="w-full h-screen overflow-hidden">
+      <EnhancedOSDashboard />
+    </main>
+  )
+}
+
+// Landing page for unauthenticated users  
+function LandingPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/50">
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-6xl mx-auto">
+          {/* Hero Section */}
+          <div className="text-center space-y-8 mb-16">
+            <div className="flex items-center justify-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <span className="text-4xl font-bold text-white">V</span>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Welcome to VOXY
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Your intelligent multi-agent AI assistant. Get help with translations, 
+                text corrections, weather information, calculations, and more.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+              <Link href="/auth/signup">
+                <Button size="lg" className="w-full sm:w-auto">
+                  Get Started
+                </Button>
+              </Link>
+              <Link href="/auth/login">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                  Sign In
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            {[
+              {
+                icon: '🌍',
+                title: 'Translation',
+                description: 'Translate text between multiple languages with high accuracy'
+              },
+              {
+                icon: '✏️',
+                title: 'Text Correction',
+                description: 'Fix grammar, spelling, and improve your writing style'
+              },
+              {
+                icon: '🌤️',
+                title: 'Weather Info',
+                description: 'Get current weather and forecasts for any location'
+              },
+              {
+                icon: '🧮',
+                title: 'Calculations',
+                description: 'Solve mathematical problems and perform complex calculations'
+              }
+            ].map((feature, index) => (
+              <Card key={index} className="text-center border-muted hover:border-border transition-colors">
+                <CardHeader>
+                  <div className="text-4xl mb-2">{feature.icon}</div>
+                  <CardTitle className="text-lg">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm">
+                    {feature.description}
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* CTA Section */}
+          <Card className="max-w-2xl mx-auto text-center bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-2xl">Ready to experience VOXY?</CardTitle>
+              <CardDescription>
+                Join thousands of users who are already benefiting from our AI-powered assistance.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/auth/signup">
+                <Button size="lg" className="w-full sm:w-auto">
+                  Create Your Account
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function Home() {
+  const { isAuthenticated, isLoading } = useAuthStore()
+
+  useEffect(() => {
+    // Initialize auth on mount
+    AuthService.initializeAuth()
+    
+    // Setup auth monitoring with proper cleanup
+    const cleanup = AuthService.setupAuthMonitoring()
+    
+    // Cleanup function to stop monitoring when component unmounts
+    return () => {
+      cleanup()
+      AuthService.stopAuthMonitoring()
+    }
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground">Loading VOXY...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show VOXY OS for authenticated users, landing page for others
+  return isAuthenticated ? <VoxyOS /> : <LandingPage />
+}

@@ -1,0 +1,32 @@
+# Model configurations for VOXY Agents system
+models:
+  orchestrator:
+    name: "gpt-4-turbo-preview"  # GPT-4.1 equivalent
+    provider: "openai"
+    max_tokens: 4096
+    temperature: 0.7
+    cost_per_input_token: 0.010  # per 1k tokens
+    cost_per_output_token: 0.030  # per 1k tokens
+    
+  subagents:
+    high_performance:
+      name: "gpt-4o-mini"
+      provider: "openai"
+      max_tokens: 2048
+      temperature: 0.5
+      cost_per_input_token: 0.00015  # per 1k tokens
+      cost_per_output_token: 0.00060  # per 1k tokens
+      
+    ultra_efficient:
+      name: "gpt-3.5-turbo"
+      provider: "openai"
+      max_tokens: 1024
+      temperature: 0.3
+      cost_per_input_token: 0.0005  # per 1k tokens
+      cost_per_output_token: 0.0015  # per 1k tokens
+
+# Complexity scoring thresholds
+complexity_tiers:
+  tier_1: 0.3    # ultra_efficient
+  tier_2: 0.7    # high_performance  
+  tier_3: 1.0    # orchestrator
