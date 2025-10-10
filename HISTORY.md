@@ -5,6 +5,285 @@ Para informações essenciais de desenvolvimento, consulte [CLAUDE.md](./CLAUDE.
 
 ---
 
+## 🧪 Sistema de Testes Isolados - VOXY Orchestrator (2025-10-10)
+
+### ✨ Extensão Completa do Sistema de Testes para incluir VOXY Orchestrator
+
+**Implementação de suporte ao agente `voxy`** (VOXY Orchestrator) no sistema de testes isolados existente, mantendo consistência arquitetural com os 5 subagentes especializados (Translator, Corrector, Weather, Calculator, Vision). Agora é possível testar o **orchestrador completo** via CLI interativo, comandos diretos e HTTP REST API.
+
+#### 🎯 Motivação
+
+O sistema de testes isolados já permitia testar os 5 subagentes individualmente (bypass 18x mais rápido: 37s → 2s), mas **não havia forma de testar o VOXY Orchestrator** de forma isolada sem passar pelo fluxo completo de autenticação web. Esta implementação preenche esse gap, habilitando:
+
+- ✅ Debug rápido do orchestrador sem UI/autenticação
+- ✅ Testes de orquestração multi-agente via CLI
+- ✅ Validação de tool selection e context management
+- ✅ Benchmark de performance do orchestrador completo
+- ✅ Integração CI/CD via HTTP REST API
+
+#### 🏗️ Arquitetura Implementada
+
+**3 Componentes Modificados**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. CLI Script (scripts/test_agent.py)                      │
+├─────────────────────────────────────────────────────────────┤
+│ ✅ Função test_voxy() - ~100 linhas                        │
+│ ✅ Subparser "voxy" com --message e --image-url            │
+│ ✅ Modo interativo adaptado para orchestrator              │
+│ ✅ Benchmark mode com tool usage stats                     │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. SubagentTester (utils/test_subagents.py)                │
+├─────────────────────────────────────────────────────────────┤
+│ ✅ get_available_agents() → retorna 6 agentes (5 + voxy)   │
+│ ✅ get_agent_info("voxy") → metadata do orchestrator       │
+│ ✅ Reutiliza test_voxy_orchestrator() existente            │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. HTTP Endpoint (api/routes/test.py)                      │
+├─────────────────────────────────────────────────────────────┤
+│ ✅ POST /api/test/subagent com rota condicional "voxy"     │
+│ ✅ Validação de input_data.message (required)              │
+│ ✅ Suporte a image_url, user_id, session_id (optional)     │
+│ ✅ Documentação OpenAPI atualizada                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 📝 Mudanças Implementadas
+
+**1. CLI Extension** (`scripts/test_agent.py`):
+
+- **Função `test_voxy()`** (linhas 126-219):
+  - Benchmark mode com estatísticas de tools usage
+  - Tool usage frequency counter (via `collections.Counter`)
+  - Export JSON/CSV support
+  - Performance metrics (timing, cost, tools_used)
+
+- **Subparser "voxy"** (linhas 585-589):
+  - `--message` (required): Mensagem para VOXY
+  - `--image-url` (optional): URL de imagem para análise multimodal
+
+- **Modo Interativo** (linhas 456-478):
+  - Detecção de `agent_name == "voxy"` com handling especial
+  - Prompts para message e image_url
+  - Bypass automático de cache/rate_limit em modo teste
+
+- **Test Functions Mapping** (linha 637):
+  - Adicionado `"voxy": test_voxy` ao dicionário de funções
+
+**2. SubagentTester Extension** (`utils/test_subagents.py`):
+
+- **`get_available_agents()`** (linhas 483-491):
+  ```python
+  return list(self.AGENT_GETTERS.keys()) + ["voxy"]
+  ```
+  - Retorna 6 agentes: `[translator, corrector, weather, calculator, vision, voxy]`
+
+- **`get_agent_info("voxy")`** (linhas 506-537):
+  ```python
+  if agent_name == "voxy":
+      config = load_orchestrator_config()
+      return {
+          "name": "voxy",
+          "model": config.get_litellm_model_path(),
+          "test_strategy": "orchestrator_direct",
+          "capabilities": [
+              "Multi-agent orchestration",
+              "Intelligent tool selection",
+              "Context-aware decision making",
+              "Vision + Standard agents coordination",
+              ...
+          ],
+          "required_params": ["message"],
+          "optional_params": ["image_url", "session_id", "user_id", ...]
+      }
+  ```
+
+- **Correção de Import** (linha 30):
+  - `load_voxy_orchestrator_config` → `load_orchestrator_config` (bugfix)
+
+**3. HTTP Endpoint Extension** (`api/routes/test.py`):
+
+- **`test_subagent()` Endpoint** (linhas 142-180):
+  - Roteamento condicional: `if request.agent_name == "voxy"`
+  - Validação de `input_data.message` (required)
+  - Suporte a parâmetros opcionais: `image_url`, `user_id`, `session_id`
+  - Chamada direta a `test_voxy_orchestrator()`
+
+- **Model Documentation** (linhas 31-38):
+  - Atualizado `SubagentTestRequest.agent_name` description
+  - Exemplo: `"translator, corrector, weather, calculator, vision, voxy"`
+
+- **Endpoint Examples** (linhas 106-139):
+  - Exemplo de teste translator (existente)
+  - Exemplo de teste VOXY Orchestrator (novo)
+
+#### 🧪 Exemplos de Uso
+
+**CLI - Teste Direto**:
+```bash
+# Tradução via orchestrator
+poetry run python scripts/test_agent.py voxy \
+  --message "Traduza 'Hello world' para português"
+
+# Análise multimodal (Vision Agent via orchestrator)
+poetry run python scripts/test_agent.py voxy \
+  --message "Qual emoji é este?" \
+  --image-url "https://example.com/emoji.png"
+```
+
+**CLI - Benchmark Mode**:
+```bash
+poetry run python scripts/test_agent.py voxy \
+  --message "Quanto é 2+2?" \
+  --benchmark --iterations 5
+
+# Output:
+# ⏱️  Timing Statistics: Min/Max/Average
+# 💰 Cost Statistics: Total/Average
+# 🔧 Tools Usage: calculate (5 times)
+```
+
+**CLI - Modo Interativo**:
+```bash
+poetry run python scripts/test_agent.py --interactive
+
+# Prompt:
+Enter agent name: voxy
+  message: Traduza "Hello" para francês
+  image_url (optional): [Enter]
+
+# Output: Resposta do VOXY com metadata completo
+```
+
+**HTTP REST API**:
+```bash
+# POST /api/test/subagent
+curl -X POST http://localhost:8000/api/test/subagent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_name": "voxy",
+    "input_data": {
+      "message": "Traduza Hello para português"
+    },
+    "bypass_cache": true
+  }'
+
+# Response 200:
+{
+  "success": true,
+  "agent_name": "voxy",
+  "response": "A tradução de 'Hello' para português é: Olá",
+  "metadata": {
+    "processing_time": 2.5,
+    "model_used": "openrouter/anthropic/claude-sonnet-4.5",
+    "tools_used": ["translate_text"],
+    "subagents_invoked": ["translator"],
+    "cost": 0.000525
+  }
+}
+```
+
+#### 📊 Metadata Retornado (Orchestrator)
+
+```json
+{
+  "success": true,
+  "agent_name": "voxy",
+  "response": "A tradução de 'Hello world' para português é: Olá mundo 🌍",
+  "metadata": {
+    "processing_time": 4.996,
+    "model_used": "openrouter/anthropic/claude-sonnet-4.5",
+    "tokens_used": {
+      "prompt_tokens": 150,
+      "completion_tokens": 25,
+      "total_tokens": 175
+    },
+    "cost": 0.000525,
+    "cache_hit": false,
+    "tools_used": ["translate_text"],
+    "subagents_invoked": ["translator"],
+    "raw_metadata": {
+      "agent_type": "translator",
+      "session_id": "...",
+      "sdk_version": "0.2.8",
+      "session_managed": "automatic"
+    }
+  }
+}
+```
+
+#### ✅ Validação (Testes Realizados)
+
+**CLI Tests**:
+```bash
+# ✅ List agents (6 agentes exibidos corretamente)
+poetry run python scripts/test_agent.py --list
+
+# ✅ Help message (voxy subparser funcional)
+poetry run python scripts/test_agent.py voxy --help
+
+# ✅ Direct test (tradução via orchestrator - 4.996s)
+poetry run python scripts/test_agent.py voxy \
+  --message "Traduza 'Hello world' para português"
+
+# Output: ✅ TEST SUCCESS
+# Response: "A tradução de 'Hello world' para português é: Olá mundo 🌍"
+# Processing Time: 4.996s
+# Model: openrouter/anthropic/claude-sonnet-4.5
+# Tools: translate_text
+```
+
+**Agent Info**:
+```bash
+# ✅ VOXY agent metadata correto
+- Model: openrouter/anthropic/claude-sonnet-4.5
+- Strategy: orchestrator_direct
+- Capabilities: 7 listadas (orchestration, tool selection, context-aware, ...)
+- Required params: message
+- Optional params: image_url, session_id, user_id, bypass_cache, bypass_rate_limit
+```
+
+#### 🎯 Benefícios Alcançados
+
+✅ **Consistência Arquitetural**: Mesmo padrão dos 5 subagentes (CLI + HTTP + Interactive)
+✅ **Zero Overhead**: Reutiliza `test_voxy_orchestrator()` existente (linhas 576-746)
+✅ **Multi-Interface**: 3 formas de teste (CLI direto, interativo, HTTP REST)
+✅ **Debugging Rápido**: Testa orchestrador completo sem autenticação/UI/frontend
+✅ **CI/CD Ready**: Automated testing via HTTP endpoint + batch testing
+✅ **Metrics Completos**: Tools used, cost, timing, session tracking, subagents invoked
+✅ **Benchmark Mode**: Estatísticas de performance + tool usage frequency
+
+#### 📋 Arquivos Modificados
+
+- ✅ `backend/scripts/test_agent.py` (~100 linhas adicionadas)
+- ✅ `backend/src/voxy_agents/utils/test_subagents.py` (~40 linhas adicionadas + 1 bugfix)
+- ✅ `backend/src/voxy_agents/api/routes/test.py` (~50 linhas adicionadas)
+- ✅ `CLAUDE.md` (seção de Testes Isolados atualizada com exemplos)
+- ✅ `HISTORY.md` (esta entrada)
+
+#### 🔧 Complexidade & Estimativa
+
+- **Complexidade**: Baixa (código já existia, apenas integração)
+- **Tempo de Implementação**: ~2 horas (4 arquivos modificados, testing incluído)
+- **Risco**: Mínimo (não afeta código existente, apenas extensão)
+- **Lines Changed**: ~200 linhas adicionadas, 2 linhas corrigidas (import bugfix)
+
+#### 🚀 Próximos Passos (Sugestões)
+
+- [ ] Adicionar testes unitários para `test_voxy()` CLI function
+- [ ] Criar exemplos de batch testing com orchestrator + subagentes
+- [ ] Documentar cenários de debug avançado (session management, tool chaining)
+- [ ] Integrar testes de orchestrator no CI/CD pipeline
+
+---
+
 ## 🎭 VOXY Orchestrator LiteLLM Migration - Claude Sonnet 4.5 (2025-10-09)
 
 ### ✨ Migração Completa do Orchestrator para LiteLLM Multi-Provider

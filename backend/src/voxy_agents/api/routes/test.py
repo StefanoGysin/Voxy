@@ -29,11 +29,11 @@ router = APIRouter(tags=["testing"])
 
 
 class SubagentTestRequest(BaseModel):
-    """Request para testar um subagente."""
+    """Request para testar um subagente ou o VOXY Orchestrator."""
 
     agent_name: str = Field(
         ...,
-        description="Nome do subagente (translator, corrector, weather, calculator, vision)",
+        description="Nome do agente (translator, corrector, weather, calculator, vision, voxy)",
         example="translator",
     )
     input_data: dict[str, Any] = Field(
@@ -87,10 +87,11 @@ class AgentInfoResponse(BaseModel):
 @router.post("/test/subagent", response_model=SubagentTestResponse)
 async def test_subagent(request: SubagentTestRequest):
     """
-    Testa um subagente específico com dados de entrada fornecidos.
+    Testa um subagente específico ou o VOXY Orchestrator com dados de entrada fornecidos.
 
-    Este endpoint permite testar subagentes individuais sem passar pelo
-    fluxo completo do VOXY Orchestrator. Útil para debug e testes automatizados.
+    Este endpoint permite testar subagentes individuais (translator, corrector, weather,
+    calculator, vision) ou o VOXY Orchestrator completo sem passar pelo fluxo de autenticação.
+    Útil para debug e testes automatizados.
 
     Args:
         request: Dados de teste incluindo nome do agente e input_data
@@ -99,16 +100,27 @@ async def test_subagent(request: SubagentTestRequest):
         TestResult com resposta e metadata detalhado
 
     Raises:
-        HTTPException 400: Se agent_name for desconhecido
+        HTTPException 400: Se agent_name for desconhecido ou input_data inválido
         HTTPException 500: Se o teste falhar por erro interno
 
-    Example:
+    Examples:
+        # Test translator
         POST /api/test/subagent
         {
             "agent_name": "translator",
             "input_data": {
                 "text": "Hello world",
                 "target_language": "pt-BR"
+            },
+            "bypass_cache": true
+        }
+
+        # Test VOXY Orchestrator
+        POST /api/test/subagent
+        {
+            "agent_name": "voxy",
+            "input_data": {
+                "message": "Traduza 'Hello' para português"
             },
             "bypass_cache": true
         }
@@ -127,7 +139,47 @@ async def test_subagent(request: SubagentTestRequest):
         }
     """
     try:
-        # Criar tester com configuração especificada
+        # Special route for VOXY Orchestrator
+        if request.agent_name == "voxy":
+            from ...utils.test_subagents import test_voxy_orchestrator
+
+            logger.info(
+                f"🧪 Testing VOXY Orchestrator via HTTP API "
+                f"(bypass_cache={request.bypass_cache})"
+            )
+
+            # Validate input_data
+            message = request.input_data.get("message")
+            if not message:
+                raise ValueError(
+                    "'message' is required in input_data for voxy agent. "
+                    "Example: {'message': 'Traduza hello para português'}"
+                )
+
+            image_url = request.input_data.get("image_url")
+            user_id = request.input_data.get("user_id", "test_user_http")
+            session_id = request.input_data.get("session_id")
+
+            # Execute VOXY Orchestrator test
+            result = await test_voxy_orchestrator(
+                message=message,
+                image_url=image_url,
+                user_id=user_id,
+                session_id=session_id,
+                bypass_cache=request.bypass_cache,
+                bypass_rate_limit=request.bypass_rate_limit,
+                include_tools_metadata=True,
+            )
+
+            return SubagentTestResponse(
+                success=result.success,
+                agent_name=result.agent_name,
+                response=result.response,
+                metadata=result.metadata.dict(),
+                error=result.error,
+            )
+
+        # Standard route for 5 subagents
         tester = SubagentTester(
             bypass_cache=request.bypass_cache,
             bypass_rate_limit=request.bypass_rate_limit,
@@ -154,8 +206,8 @@ async def test_subagent(request: SubagentTestRequest):
         )
 
     except ValueError as e:
-        # Agent name inválido
-        logger.error(f"❌ Invalid agent name: {e}")
+        # Agent name inválido ou input_data inválido
+        logger.error(f"❌ Invalid request: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
     except Exception as e:

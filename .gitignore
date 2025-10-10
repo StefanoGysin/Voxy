@@ -80,7 +80,6 @@ logs/
 # Temporary files
 *.tmp
 *.temp
-test_*.py
 test-*.js
 VOXY_ORCHESTRATOR_LITELLM_PLAN.md
 VOXY_SYSTEM_FLOWCHART.md

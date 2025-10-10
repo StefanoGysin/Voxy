@@ -153,7 +153,9 @@ flowchart TB
     style CacheCheck fill:#95e1d3,color:#000
 ```
 
-### 🔑 Legenda do Fluxo Principal
+---
+
+## 🔑 Legenda do Fluxo Principal
 
 **Pontos de Entrada**:
 - **HTTP POST** `/api/chat/` - API REST síncrona
@@ -185,94 +187,5 @@ flowchart TB
 
 ---
 
-## 🧪 Diagrama de Fluxo: Teste Isolado de Subagentes
-
-```mermaid
-flowchart TB
-    TestStart([Test Request]) --> TestEntry{Entry Point?}
-
-    TestEntry -->|CLI| CLI["scripts/test_agent.py<br/>--text --target-language<br/>--interactive mode<br/>--benchmark --export"]
-    TestEntry -->|HTTP| HTTPTest["POST /api/test/subagent<br/>agent_type, input_data,<br/>bypass_cache, bypass_rate_limit"]
-
-    CLI --> ParseArgs[Parse CLI Arguments<br/>argparse + validation]
-    HTTPTest --> ValidateReq[Validate Request<br/>Pydantic TestSubagentRequest]
-
-    ParseArgs --> DirectLoad[Direct Subagent Load<br/>BYPASS VOXY Orchestrator<br/>18x speedup: 37s to 2s]
-    ValidateReq --> DirectLoad
-
-    DirectLoad --> LoadConfig["Load agent config<br/>from models_config.py<br/>env vars + defaults"]
-
-    LoadConfig --> LiteLLMCheck{Uses LiteLLM?}
-
-    LiteLLMCheck -->|Yes| LiteLLMFactory["Create LiteLLM model<br/>LiteLLM Multi-Provider<br/>400+ models available"]
-    LiteLLMCheck -->|No| NativeModel[Native OpenAI SDK<br/>Legacy subagents]
-
-    LiteLLMFactory --> InstantiateAgent[Instantiate Subagent<br/>Direct constructor call<br/>Create Agent instance]
-    NativeModel --> InstantiateAgent
-
-    InstantiateAgent --> VisionCheck{Vision Agent?}
-
-    VisionCheck -->|Yes| VisionExec[Vision: analyze_image<br/>async method<br/>bypass cache/rate limit optional]
-    VisionCheck -->|No| StandardExec[Standard: Runner.run<br/>OpenAI Agents SDK<br/>formatted_input]
-
-    VisionExec --> MeasurePerf[Measure Performance<br/>time.perf_counter<br/>+ cost tracking]
-    StandardExec --> MeasurePerf
-
-    MeasurePerf --> BuildResult[Build TestResult<br/>success, response, metadata<br/>tokens, cost, cache_hit]
-
-    BuildResult --> FormatResponse{Response Format?}
-
-    FormatResponse -->|CLI JSON| CLIJson[JSON output<br/>--output-format json<br/>file export]
-    FormatResponse -->|CLI CSV| CLICSV[CSV output<br/>--output-format csv<br/>spreadsheet ready]
-    FormatResponse -->|CLI ANSI| CLIAnsi[ANSI colored output<br/>Rich formatting<br/>table display]
-    FormatResponse -->|HTTP| HTTPJson[HTTP JSON Response<br/>TestSubagentResponse model<br/>api/models.py]
-
-    CLIJson --> TestEnd([Performance Results<br/>Standard: 37s to 2s - 18x<br/>Vision: 37s to 7-8s - 5x<br/>Bypass cache: Optional])
-    CLICSV --> TestEnd
-    CLIAnsi --> TestEnd
-    HTTPJson --> TestEnd
-
-    style DirectLoad fill:#ff6b6b,color:#fff
-    style LiteLLMFactory fill:#4ecdc4,color:#fff
-    style InstantiateAgent fill:#ffd93d,color:#000
-    style MeasurePerf fill:#95e1d3,color:#000
-    style BuildResult fill:#a8dadc,color:#000
-```
-
-### 🔑 Legenda do Fluxo de Testes
-
-**Entry Points**:
-- **CLI**: `scripts/test_agent.py` - Modo interativo, benchmark, export (JSON/CSV)
-- **HTTP API**: `POST /api/test/subagent` - RESTful API para testes automatizados
-
-**Bypass Features**:
-- **Direct Loading**: Pula VOXY Orchestrator → reduz overhead de 18x (37s → 2s)
-- **Cache Control**: Flag `bypass_cache=true` para forçar re-execução
-- **Rate Limit Control**: Flag `bypass_rate_limit=true` para testes intensivos
-
-**Performance Gains**:
-- **Standard Agents**: 37s via orchestrator → **2s** isolado (**18x faster**)
-- **Vision Agent**: 37s via orchestrator → **7-8s** isolado (**5x faster**)
-
-**Output Formats**:
-- **JSON**: Structured output para parsing programático + file export
-- **CSV**: Spreadsheet-ready para análise de dados em Excel/Sheets
-- **ANSI**: Rich terminal output com cores e tabelas (CLI)
-- **HTTP**: REST API response com Pydantic models (`api/models.py`)
-
-**Testing Workflow**:
-1. Request → Entry point (CLI ou HTTP)
-2. Validation → argparse/Pydantic
-3. Direct Load → Bypass orchestrator overhead
-4. Config Load → Environment variables via `models_config.py`
-5. LiteLLM Check → Factory pattern ou Native SDK
-6. Agent Instantiation → Direct constructor call
-7. Execution → `analyze_image()` (Vision) ou `Runner.run()` (Standard)
-8. Performance Measurement → `time.perf_counter()` + cost tracking
-9. Result Building → TestResult with metadata (tokens, cost, cache_hit)
-10. Format Response → JSON/CSV/ANSI/HTTP
-11. Return Results → Performance metrics + response data
-
----
-
-**Versão**: v2.4 (2025-10-09) | **Status**: 100% Operacional ✅
+**Versão**: v2.5 (2025-10-10) | **Status**: 100% Operacional ✅
+**Última Atualização**: Fluxo Principal do Sistema VOXY

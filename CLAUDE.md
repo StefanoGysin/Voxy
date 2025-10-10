@@ -272,14 +272,43 @@ npm run lint
 **Bypass do VOXY Orchestrator** para debug rápido:
 - Debug 18x mais rápido: 37s → 2s (standard agents)
 - 4 componentes: Módulo principal, Testes unitários, CLI script, HTTP endpoints
+- 6 agentes testáveis: 5 subagentes + VOXY Orchestrator
 - 5 endpoints HTTP: `/api/test/subagent`, `/api/test/agents`, etc.
 - CLI rico: ANSI colors, interactive mode, benchmark, export JSON/CSV
 
-**Exemplo CLI**:
+**Exemplo CLI (Subagentes)**:
 ```bash
+# Testar tradutor
 poetry run python scripts/test_agent.py translator \
   --text "Hello world" \
   --target-language "pt-BR"
+
+# Testar Vision Agent
+poetry run python scripts/test_agent.py vision \
+  --image-url "https://example.com/image.jpg" \
+  --query "O que você vê?"
+```
+
+**Exemplo CLI (VOXY Orchestrator)**:
+```bash
+# Teste simples
+poetry run python scripts/test_agent.py voxy \
+  --message "Traduza 'Hello world' para português"
+
+# Com imagem (análise multimodal via Vision Agent)
+poetry run python scripts/test_agent.py voxy \
+  --message "Qual emoji é este?" \
+  --image-url "https://example.com/emoji.png"
+
+# Benchmark mode
+poetry run python scripts/test_agent.py voxy \
+  --message "Quanto é 2+2?" \
+  --benchmark --iterations 5
+
+# Modo interativo
+poetry run python scripts/test_agent.py --interactive
+# Digite: voxy
+# message: Traduza "Hello" para francês
 ```
 
 ## 📊 API Endpoints Principais
@@ -303,9 +332,10 @@ poetry run python scripts/test_agent.py translator \
 - `DELETE /api/images/{id}` - Delete image
 
 **Testing**:
-- `POST /api/test/subagent` - Test isolated subagent
-- `GET /api/test/agents` - List available agents
+- `POST /api/test/subagent` - Test isolated subagent or VOXY Orchestrator
+- `GET /api/test/agents` - List available agents (5 subagentes + voxy)
 - `POST /api/test/batch` - Batch testing (up to 10)
+- `GET /api/test/health` - Health check do sistema de testes
 
 ## 🎯 Features Principais
 
