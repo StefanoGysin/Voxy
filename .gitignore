@@ -97,6 +97,5 @@ htmlcov/
 *.jpeg
 *.gif
 insomnia_collection.json
-docker-compose.yml
 test_image.png
 coverage.json
