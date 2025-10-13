@@ -50,7 +50,7 @@ class CorrectorAgent:
         logger.bind(event="STARTUP|SUBAGENT_INIT").info(
             f"\n"
             f"   ├─ ✓ Corrector\n"
-            f"   │  ├─ Model: {config.model_name} ({config.provider.title()})\n"
+            f"   │  ├─ Model: {config.get_litellm_model_path()}\n"
             f"   │  ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"
             f"   │  └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )

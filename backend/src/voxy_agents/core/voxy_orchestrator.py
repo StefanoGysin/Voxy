@@ -70,7 +70,7 @@ class VoxyOrchestrator:
         logger.bind(event="STARTUP|ORCHESTRATOR").info(
             f"\n"
             f"🤖 VOXY Orchestrator Initialized\n"
-            f"   ├─ Model: {self.config.model_name} ({self.config.provider.title()})\n"
+            f"   ├─ Model: {self.config.get_litellm_model_path()}\n"
             f"   ├─ Config: {self.config.max_tokens} tokens, temp={self.config.temperature}, reasoning={self.config.reasoning_effort}\n"
             f"   └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )

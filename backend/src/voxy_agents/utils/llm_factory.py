@@ -51,8 +51,8 @@ def create_litellm_model(config: SubagentModelConfig) -> LitellmModel:
     # Get formatted model path for LiteLLM
     model_path = config.get_litellm_model_path()
 
-    # Log model creation
-    logger.info(
+    # Log model creation (DEBUG level to reduce noise in production)
+    logger.debug(
         f"Creating LiteLLM model: {model_path} "
         f"(max_tokens={config.max_tokens}, temperature={config.temperature})"
     )
@@ -64,7 +64,7 @@ def create_litellm_model(config: SubagentModelConfig) -> LitellmModel:
             api_key=config.api_key,
         )
 
-        logger.info(f"✓ LiteLLM model created successfully: {model_path}")
+        logger.debug(f"✓ LiteLLM model created successfully: {model_path}")
         return model
 
     except Exception as e:

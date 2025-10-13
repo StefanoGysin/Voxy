@@ -94,11 +94,14 @@ class VOXYSystem:
         )
 
         # Log Vision Agent (integrated in orchestrator)
+        from .config.models_config import load_vision_config
+        vision_config = load_vision_config()
+
         logger.bind(event="STARTUP|SUBAGENT_INIT").info(
             "   \n"
             "   └─ ✓ Vision (integrated in orchestrator)\n"
-            "      ├─ Model: gpt-4o (OpenRouter)\n"
-            "      ├─ Config: 2000 tokens, temp=0.1, reasoning=medium\n"
+            f"      ├─ Model: {vision_config.get_litellm_model_path()}\n"
+            f"      ├─ Config: {vision_config.max_tokens} tokens, temp={vision_config.temperature}, reasoning={vision_config.reasoning_effort}\n"
             "      └─ ✓ Integrated"
         )
 

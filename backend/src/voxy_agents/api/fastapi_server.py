@@ -102,6 +102,9 @@ async def lifespan(app: FastAPI):
     # Calculate timing
     elapsed = time.perf_counter() - startup_start
 
+    # Get orchestrator model path dynamically
+    orchestrator_model = voxy_system.orchestrator.config.get_litellm_model_path()
+
     # Startup summary
     logger.bind(event="STARTUP|COMPLETE").info(
         f"\n"
@@ -109,7 +112,7 @@ async def lifespan(app: FastAPI):
         f"   ├─ Total time: {elapsed:.2f}s\n"
         f"   ├─ Redis: Connected\n"
         f"   ├─ Subagents: 5 registered (translator, corrector, weather, calculator, vision)\n"
-        f"   ├─ Orchestrator: anthropic/claude-sonnet-4.5\n"
+        f"   ├─ Orchestrator: {orchestrator_model}\n"
         f"   └─ Listening: http://0.0.0.0:8000"
     )
 
