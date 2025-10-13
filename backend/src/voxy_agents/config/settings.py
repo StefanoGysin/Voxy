@@ -9,7 +9,8 @@ from typing import Any
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# override=True ensures .env values take precedence over shell exports
+load_dotenv(override=True)
 
 
 class Settings:

@@ -10,6 +10,11 @@ import logging
 import inspect
 from pathlib import Path
 from loguru import logger
+from dotenv import load_dotenv
+
+# Load .env file BEFORE reading any environment variables
+# override=True ensures .env values take precedence over shell exports
+load_dotenv(override=True)
 
 
 class InterceptHandler(logging.Handler):

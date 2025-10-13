@@ -12,7 +12,8 @@ from typing import Literal, Optional
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+# override=True ensures .env values take precedence over shell exports
+load_dotenv(override=True)
 
 
 @dataclass
