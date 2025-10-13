@@ -68,6 +68,7 @@ class VoxyOrchestrator:
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         logger.bind(event="STARTUP|ORCHESTRATOR").info(
+            f"\n"
             f"🤖 VOXY Orchestrator Initialized\n"
             f"   ├─ Model: {self.config.model_name} ({self.config.provider.title()})\n"
             f"   ├─ Config: {self.config.max_tokens} tokens, temp={self.config.temperature}, reasoning={self.config.reasoning_effort}\n"

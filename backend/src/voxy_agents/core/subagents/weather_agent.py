@@ -100,6 +100,7 @@ class WeatherAgent:
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         logger.bind(event="STARTUP|SUBAGENT_INIT").info(
+            f"\n"
             f"   ├─ ✓ Weather\n"
             f"   │  ├─ Model: {config.model_name} ({config.provider.title()})\n"
             f"   │  ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"

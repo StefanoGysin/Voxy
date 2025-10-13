@@ -104,6 +104,7 @@ async def lifespan(app: FastAPI):
 
     # Startup summary
     logger.bind(event="STARTUP|COMPLETE").info(
+        f"\n"
         f"✅ VOXY System Ready\n"
         f"   ├─ Total time: {elapsed:.2f}s\n"
         f"   ├─ Redis: Connected\n"
