@@ -79,6 +79,9 @@ class WeatherAgent:
 
     def __init__(self):
         """Initialize the weather subagent with configurable LiteLLM model."""
+        import time
+        start_time = time.perf_counter()
+
         config = load_weather_config()
         model = create_litellm_model(config)
 
@@ -94,11 +97,13 @@ class WeatherAgent:
         )
 
         self.config = config
-        logger.bind(event="WEATHER_AGENT|INIT").info(
-            "Weather subagent initialized",
-            provider=config.provider,
-            model=config.model_name,
-            tools=["get_weather_api"]
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        logger.bind(event="STARTUP|SUBAGENT_INIT").info(
+            f"   ├─ ✓ Weather\n"
+            f"   │  ├─ Model: {config.model_name} ({config.provider.title()})\n"
+            f"   │  ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"
+            f"   │  └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )
 
     def _get_instructions(self) -> str:

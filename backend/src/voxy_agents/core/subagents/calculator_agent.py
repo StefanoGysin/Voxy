@@ -43,6 +43,9 @@ class CalculatorAgent:
         Raises:
             ValueError: If required API key is missing or config is invalid
         """
+        import time
+        start_time = time.perf_counter()
+
         # Load configuration from environment variables
         config = load_calculator_config()
 
@@ -62,13 +65,13 @@ class CalculatorAgent:
 
         # Store config for reference
         self.config = config
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
 
-        logger.bind(event="CALCULATOR_AGENT|INIT").info(
-            "Calculator subagent initialized",
-            provider=config.provider,
-            model=config.model_name,
-            max_tokens=config.max_tokens,
-            temperature=config.temperature
+        logger.bind(event="STARTUP|SUBAGENT_INIT").info(
+            f"   └─ ✓ Calculator\n"
+            f"      ├─ Model: {config.model_name} ({config.provider.title()})\n"
+            f"      ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"
+            f"      └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )
 
     def _get_instructions(self) -> str:

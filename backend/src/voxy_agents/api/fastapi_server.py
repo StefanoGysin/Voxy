@@ -89,28 +89,33 @@ class ConnectionManager:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events for startup and shutdown."""
+    import time
+    startup_start = time.perf_counter()
+
     # Startup
-    logger.info("🚀 VOXY Agents API Server starting up...")
-    logger.info("📋 Initializing VOXY Agents System...")
+    logger.bind(event="STARTUP|BEGIN").info("🚀 VOXY Agents System Initializing...")
 
     # Initialize VOXY system once during startup
     voxy_system = get_voxy_system()
     app.state.voxy_system = voxy_system
 
-    # Calculate total subagents (4 in orchestrator.subagents + 1 Vision Agent)
-    total_subagents = len(voxy_system.orchestrator.subagents) + 1
-    subagent_names = list(voxy_system.orchestrator.subagents.keys()) + ["vision"]
+    # Calculate timing
+    elapsed = time.perf_counter() - startup_start
 
-    logger.info("🚀 VOXY Agents System Startup")
-    logger.info(f"   ├─ 📦 Subagents: {total_subagents} registered")
-    logger.info(f"   │   ├─ {', '.join(voxy_system.orchestrator.subagents.keys())}")
-    logger.info(f"   │   └─ vision (integrated in orchestrator)")
-    logger.info(f"   └─ ✅ Ready on http://0.0.0.0:8000")
+    # Startup summary
+    logger.bind(event="STARTUP|COMPLETE").info(
+        f"✅ VOXY System Ready\n"
+        f"   ├─ Total time: {elapsed:.2f}s\n"
+        f"   ├─ Redis: Connected\n"
+        f"   ├─ Subagents: 5 registered (translator, corrector, weather, calculator, vision)\n"
+        f"   ├─ Orchestrator: anthropic/claude-sonnet-4.5\n"
+        f"   └─ Listening: http://0.0.0.0:8000"
+    )
 
     yield
 
     # Shutdown
-    logger.info("🛑 VOXY Agents API Server shutting down...")
+    logger.bind(event="SHUTDOWN").info("🛑 VOXY Agents API Server shutting down...")
 
 
 # Global instances

@@ -36,6 +36,9 @@ class VoxyOrchestrator:
 
     def __init__(self):
         """Initialize VOXY orchestrator with OpenAI Agents SDK + LiteLLM."""
+        import time
+        start_time = time.perf_counter()
+
         # Load LiteLLM configuration for orchestrator
         from ..config.models_config import load_orchestrator_config
         from ..utils.llm_factory import create_litellm_model
@@ -62,13 +65,13 @@ class VoxyOrchestrator:
             api_key=settings.openai_api_key, timeout=30.0, max_retries=1
         )
 
-        logger.bind(event="VOXY_ORCHESTRATOR|INIT").info(
-            f"VOXY Orchestrator initialized with LiteLLM:\n"
-            f"   ├─ Provider: {self.config.provider}\n"
-            f"   ├─ Model: {self.config.get_litellm_model_path()}\n"
-            f"   ├─ Max tokens: {self.config.max_tokens}\n"
-            f"   ├─ Temperature: {self.config.temperature}\n"
-            f"   └─ Reasoning effort: {self.config.reasoning_effort}"
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        logger.bind(event="STARTUP|ORCHESTRATOR").info(
+            f"🤖 VOXY Orchestrator Initialized\n"
+            f"   ├─ Model: {self.config.model_name} ({self.config.provider.title()})\n"
+            f"   ├─ Config: {self.config.max_tokens} tokens, temp={self.config.temperature}, reasoning={self.config.reasoning_effort}\n"
+            f"   └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )
 
     def register_subagent(
@@ -88,9 +91,7 @@ class VoxyOrchestrator:
             "tool_name": tool_name,
             "description": description,
         }
-        logger.bind(event="VOXY_ORCHESTRATOR|SUBAGENT_REGISTERED").info(
-            f"Registered subagent: {name} as tool '{tool_name}'"
-        )
+        # Logging now done by individual subagents during initialization
 
     def _initialize_voxy_agent(self) -> None:
         """Initialize the main VOXY agent with registered subagents as tools."""

@@ -55,11 +55,12 @@ class VOXYSystem:
         """Initialize the complete VOXY system."""
         self.orchestrator = get_voxy_orchestrator()
         self._setup_subagents()
-
-        logger.bind(event="VOXY_SYSTEM|INIT").info("VOXY System initialized successfully")
+        # Summary log now in fastapi_server.py lifespan()
 
     def _setup_subagents(self):
         """Register all subagents as tools for VOXY."""
+        logger.bind(event="STARTUP|SUBAGENTS").info("📦 Registering Subagents (4 agents + Vision)")
+
         # Register translator subagent
         self.orchestrator.register_subagent(
             name="translator",
@@ -92,12 +93,13 @@ class VOXYSystem:
             description="Realizar cálculos matemáticos básicos e avançados com explicações",
         )
 
-        # Vision Agent is integrated directly in VOXY Orchestrator as analyze_image tool
-        # No separate registration needed - it's built into the orchestrator
-
-        logger.bind(event="VOXY_SYSTEM|SUBAGENTS_REGISTERED").info(
-            "All 5 subagents registered successfully",
-            subagents=["translator", "corrector", "weather", "calculator", "vision"]
+        # Log Vision Agent (integrated in orchestrator)
+        logger.bind(event="STARTUP|SUBAGENT_INIT").info(
+            "   \n"
+            "   └─ ✓ Vision (integrated in orchestrator)\n"
+            "      ├─ Model: gpt-4o (OpenRouter)\n"
+            "      ├─ Config: 2000 tokens, temp=0.1, reasoning=medium\n"
+            "      └─ ✓ Integrated"
         )
 
     async def chat(

@@ -80,8 +80,8 @@ def setup_stdlib_intercept():
         _logger.handlers = [InterceptHandler()]
         _logger.propagate = False
 
-        # Reduzir ruído: httpx/httpcore muito verbosos em DEBUG
-        if logger_name in ('httpx', 'httpcore'):
+        # Reduzir ruído: loggers muito verbosos em DEBUG
+        if logger_name in ('httpx', 'httpcore', 'litellm', 'LiteLLM'):
             _logger.setLevel(logging.WARNING)  # Só erros/avisos
 
 

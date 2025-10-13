@@ -28,6 +28,9 @@ class TranslatorAgent:
 
     def __init__(self):
         """Initialize the translator subagent with configurable LiteLLM model."""
+        import time
+        start_time = time.perf_counter()
+
         config = load_translator_config()
         model = create_litellm_model(config)
 
@@ -42,10 +45,13 @@ class TranslatorAgent:
         )
 
         self.config = config
-        logger.bind(event="TRANSLATOR_AGENT|INIT").info(
-            "Translator subagent initialized",
-            provider=config.provider,
-            model=config.model_name
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        logger.bind(event="STARTUP|SUBAGENT_INIT").info(
+            f"   ├─ ✓ Translator\n"
+            f"   │  ├─ Model: {config.model_name} ({config.provider.title()})\n"
+            f"   │  ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"
+            f"   │  └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )
 
     def _get_instructions(self) -> str:
