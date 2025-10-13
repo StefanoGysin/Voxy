@@ -17,6 +17,10 @@ Arquitetura:
 3️⃣ Importar outros módulos
 """
 
+# ===== 0️⃣ PRÉ-CONFIG: Suprimir duplicação de logs LiteLLM =====
+import os
+os.environ["LITELLM_LOG"] = "ERROR"  # Só erros críticos (evita duplicação DEBUG/INFO)
+
 # ===== 1️⃣ PRIMEIRO: Configurar Loguru =====
 from .config.logger_config import configure_logger
 configure_logger()
