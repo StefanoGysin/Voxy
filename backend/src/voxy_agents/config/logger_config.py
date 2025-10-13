@@ -152,25 +152,18 @@ def configure_logger():
             return record["message"] + "\n"
 
         # Formato completo com cabeçalho (DEBUG mode ou eventos não-STARTUP)
+        # Usar formato string do Loguru com tags de cor
         time_str = record["time"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         level = record["level"].name
         event_display = record["extra"].get("event", "GENERAL")
         source = record["extra"].get("source", "")
         message = record["message"]
 
-        # Aplicar cores do Loguru
-        from loguru._colorizer import Colorizer
-        colorizer = Colorizer()
-
-        time_colored = colorizer.colorize(f"<green>{time_str}</green>")
-        level_colored = colorizer.colorize(f"<level>{level: <8}</level>")
-        event_colored = colorizer.colorize(f"<cyan>{event_display}</cyan>")
-        source_colored = colorizer.colorize(f"<blue>{source}</blue>") if source else ""
-
+        # Formato com tags do Loguru (processadas automaticamente quando colorize=True)
         if source:
-            return f"{time_colored} | {level_colored} | {event_colored} | {source_colored} | {message}\n"
+            return f"<green>{time_str}</green> | <level>{level: <8}</level> | <cyan>{event_display}</cyan> | <blue>{source}</blue> | {message}\n"
         else:
-            return f"{time_colored} | {level_colored} | {event_colored} | {message}\n"
+            return f"<green>{time_str}</green> | <level>{level: <8}</level> | <cyan>{event_display}</cyan> | {message}\n"
 
     # SINK 1: Console (desenvolvimento apenas)
     if env == "development":
