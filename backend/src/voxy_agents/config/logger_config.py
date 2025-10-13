@@ -2,7 +2,7 @@
 Configuração central de logging com Loguru.
 Baseado na documentação oficial: https://loguru.readthedocs.io/
 
-Migração Loguru - Sprint 2: Implementação completa
+Migração Loguru - Sprint 2: Implementação completa + Correções e Melhorias
 """
 import sys
 import os
@@ -17,6 +17,10 @@ class InterceptHandler(logging.Handler):
     Implementação oficial do Loguru para interceptar logs do stdlib.
     Captura logs de FastAPI, Uvicorn, LiteLLM e outras bibliotecas.
 
+    Features:
+    - Preserva contexto de origem (record.name como event)
+    - Mapeia níveis automaticamente (httpcore debug -> TRACE)
+
     Fonte: https://loguru.readthedocs.io/en/stable/resources/migration.html
     """
 
@@ -27,6 +31,11 @@ class InterceptHandler(logging.Handler):
             level = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
+
+        # Mapeamento de níveis para bibliotecas barulhentas
+        # httpcore debug -> TRACE para reduzir ruído
+        if record.name in ('httpcore', 'httpx') and record.levelno == logging.DEBUG:
+            level = "TRACE"
 
         # Find caller from where originated the logged message
         frame, depth = inspect.currentframe(), 0
@@ -39,7 +48,14 @@ class InterceptHandler(logging.Handler):
             frame = frame.f_back
             depth += 1
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        # Preservar contexto de origem: usar record.name como event
+        # Evita que logs externos caiam no bucket genérico GENERAL
+        event_name = record.name.upper().replace('.', '_')
+
+        logger.bind(event=event_name).opt(
+            depth=depth,
+            exception=record.exc_info
+        ).log(level, record.getMessage())
 
 
 def setup_stdlib_intercept():
@@ -50,16 +66,49 @@ def setup_stdlib_intercept():
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
     # Interceptar loggers específicos de terceiros
-    for logger_name in ['uvicorn', 'uvicorn.error', 'uvicorn.access', 'fastapi', 'litellm']:
+    # Correção: Adicionar 'LiteLLM', 'httpx', 'httpcore' para reduzir ruído HTTP
+    intercepted_loggers = [
+        'uvicorn',
+        'uvicorn.error',
+        'uvicorn.access',
+        'fastapi',
+        'litellm',
+        'LiteLLM',  # LiteLLM com L maiúsculo
+        'httpx',
+        'httpcore'
+    ]
+
+    for logger_name in intercepted_loggers:
         _logger = logging.getLogger(logger_name)
         _logger.handlers = [InterceptHandler()]
         _logger.propagate = False
+
+
+def _format_performance(record):
+    """
+    Formatador custom para sink de performance.
+    Usa .get() para evitar KeyError quando faltarem campos.
+    """
+    extra = record["extra"]
+    duration = extra.get("duration_ms", "N/A")
+    tokens = extra.get("tokens", "N/A")
+    cost = extra.get("cost", "N/A")
+
+    time_str = record["time"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    event = extra.get("event", "UNKNOWN")
+
+    return f"{time_str} | {event} | {duration}ms | {tokens} tokens | ${cost}\n"
 
 
 def configure_logger():
     """
     Configuração principal do Loguru.
     Remove handlers padrão e adiciona sinks customizados.
+
+    Melhorias:
+    - Usa patcher ao invés de filter repetido
+    - Separa configurações por ambiente
+    - Formatador custom para performance sink
     """
     # Ler configuração do ambiente
     env = os.getenv("VOXY_ENV", "development")
@@ -76,40 +125,42 @@ def configure_logger():
     # Importar filtros
     from .log_filters import mask_sensitive_data
 
-    # Patcher para adicionar event default
-    def add_event_default(record):
+    # Patcher para adicionar event default (executa uma vez por log)
+    def add_event_patcher(record):
         if "event" not in record["extra"]:
             record["extra"]["event"] = "GENERAL"
-        return True
 
-    # SINK 1: Console (desenvolvimento)
+    # Configurar patcher global (melhoria: evita executar filter múltiplas vezes)
+    logger.configure(patcher=add_event_patcher)
+
+    # SINK 1: Console (desenvolvimento apenas)
     if env == "development":
+        # diagnose=True apenas em dev para tracebacks ricos
         logger.add(
             sys.stdout,
             format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{extra[event]}</cyan> | {message}",
             level=log_level,
             colorize=True,
             enqueue=False,  # Console não precisa de enqueue
-            filter=add_event_default
+            diagnose=True,  # Tracebacks ricos em dev
+            filter=mask_sensitive_data
         )
 
-    # SINK 2: Arquivo principal
-    def combined_filter(record):
-        add_event_default(record)
-        return mask_sensitive_data(record)
+    # SINK 2: Arquivo principal (INFO em produção, log_level em dev)
+    main_level = "INFO" if env == "production" else log_level
 
     logger.add(
         log_dir / "voxy_main.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[event]} | {message}",
-        level="INFO",
+        level=main_level,
         rotation="10 MB",
         retention=5,
         compression="zip",
-        enqueue=True,  # CRÍTICO para async safety
-        filter=combined_filter
+        enqueue=True,  # CRÍTICO para async safety em produção
+        filter=mask_sensitive_data
     )
 
-    # SINK 3: Erros com diagnóstico
+    # SINK 3: Erros com diagnóstico (diagnose apenas em dev)
     logger.add(
         log_dir / "voxy_error.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[event]} | {message}",
@@ -119,14 +170,14 @@ def configure_logger():
         compression="zip",
         enqueue=True,
         backtrace=True,
-        diagnose=True if env == "development" else False,
-        filter=combined_filter
+        diagnose=env == "development",  # Apenas em dev para evitar expor info sensível
+        filter=mask_sensitive_data
     )
 
-    # SINK 4: Performance (isolado)
+    # SINK 4: Performance (isolado) - usa formatador custom
     logger.add(
         log_dir / "voxy_performance.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {extra[event]} | {extra[duration_ms]}ms | {extra[tokens]} tokens | ${extra[cost]}",
+        format=_format_performance,
         level="DEBUG",
         filter=lambda record: "duration_ms" in record["extra"] or "cost" in record["extra"],
         rotation="50 MB",
@@ -165,6 +216,8 @@ def configure_logger():
 
     # SINK 7: Sentry (se configurado)
     sentry_dsn = os.getenv("VOXY_LOG_SENTRY_DSN")
+    sinks_count = 6 if enable_json else 5
+
     if sentry_dsn:
         try:
             import sentry_sdk
@@ -172,12 +225,14 @@ def configure_logger():
 
             sentry_sdk.init(dsn=sentry_dsn, environment=env)
             logger.add(sentry_sink, level="ERROR")
+            sinks_count += 1
         except ImportError:
             logger.warning("Sentry SDK não instalado - sink desabilitado")
 
-    logger.bind(event="LOGGER_INIT").info(
-        "Loguru configurado com sucesso",
+    # Log de inicialização (correção: metadados agora aparecem via bind)
+    logger.bind(
+        event="LOGGER_INIT",
         env=env,
         log_level=log_level,
-        sinks=7 if sentry_dsn else 6
-    )
+        sinks=sinks_count
+    ).info("Loguru configurado com sucesso")
