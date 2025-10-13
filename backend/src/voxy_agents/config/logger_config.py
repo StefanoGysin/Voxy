@@ -136,13 +136,49 @@ def configure_logger():
     # Configurar patcher global (melhoria: evita executar filter múltiplas vezes)
     logger.configure(patcher=add_defaults_patcher)
 
+    # Formatador custom para logs de startup (visual limpo em produção)
+    def _format_startup_visual(record):
+        """
+        Formatador condicional para logs STARTUP.
+
+        - DEBUG mode: Mostra cabeçalho completo (rastreamento técnico)
+        - INFO/WARNING/ERROR: Omite cabeçalho, só conteúdo visual (limpo)
+        """
+        event = record["extra"].get("event", "")
+
+        # Se for evento STARTUP e não estiver em DEBUG, omitir cabeçalho
+        if event.startswith("STARTUP|") and log_level != "DEBUG":
+            # Visual limpo: apenas a mensagem
+            return record["message"] + "\n"
+
+        # Formato completo com cabeçalho (DEBUG mode ou eventos não-STARTUP)
+        time_str = record["time"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        level = record["level"].name
+        event_display = record["extra"].get("event", "GENERAL")
+        source = record["extra"].get("source", "")
+        message = record["message"]
+
+        # Aplicar cores do Loguru
+        from loguru._colorizer import Colorizer
+        colorizer = Colorizer()
+
+        time_colored = colorizer.colorize(f"<green>{time_str}</green>")
+        level_colored = colorizer.colorize(f"<level>{level: <8}</level>")
+        event_colored = colorizer.colorize(f"<cyan>{event_display}</cyan>")
+        source_colored = colorizer.colorize(f"<blue>{source}</blue>") if source else ""
+
+        if source:
+            return f"{time_colored} | {level_colored} | {event_colored} | {source_colored} | {message}\n"
+        else:
+            return f"{time_colored} | {level_colored} | {event_colored} | {message}\n"
+
     # SINK 1: Console (desenvolvimento apenas)
     if env == "development":
         # diagnose=True apenas em dev para tracebacks ricos
-        # source mostra origem de logs externos (uvicorn, litellm, etc.)
+        # Formatador custom omite cabeçalho em STARTUP quando não está em DEBUG
         logger.add(
             sys.stdout,
-            format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{extra[event]}</cyan> | <blue>{extra[source]}</blue> | {message}",
+            format=_format_startup_visual,  # Custom formatter
             level=log_level,
             colorize=True,
             enqueue=False,  # Console não precisa de enqueue
