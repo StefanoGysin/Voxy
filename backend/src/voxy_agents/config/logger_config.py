@@ -122,13 +122,15 @@ def configure_logger():
     # Importar filtros
     from .log_filters import mask_sensitive_data
 
-    # Patcher para adicionar event default (executa uma vez por log)
-    def add_event_patcher(record):
+    # Patcher para adicionar defaults (executa uma vez por log)
+    def add_defaults_patcher(record):
         if "event" not in record["extra"]:
             record["extra"]["event"] = "GENERAL"
+        if "source" not in record["extra"]:
+            record["extra"]["source"] = ""  # Empty for internal logs
 
     # Configurar patcher global (melhoria: evita executar filter múltiplas vezes)
-    logger.configure(patcher=add_event_patcher)
+    logger.configure(patcher=add_defaults_patcher)
 
     # SINK 1: Console (desenvolvimento apenas)
     if env == "development":
@@ -136,7 +138,7 @@ def configure_logger():
         # source mostra origem de logs externos (uvicorn, litellm, etc.)
         logger.add(
             sys.stdout,
-            format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{extra[event]}</cyan> | <blue>{extra[source]:-}</blue> | {message}",
+            format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{extra[event]}</cyan> | <blue>{extra[source]}</blue> | {message}",
             level=log_level,
             colorize=True,
             enqueue=False,  # Console não precisa de enqueue
