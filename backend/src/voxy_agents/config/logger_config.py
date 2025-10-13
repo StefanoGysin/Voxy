@@ -51,13 +51,21 @@ class InterceptHandler(logging.Handler):
 
         # Preservar contexto de origem via campo 'source'
         # Mantém padrão event="GENERAL" + rastreabilidade por source
+
+        # Fix: Escape curly braces to prevent Loguru formatting errors
+        # Mensagens interceptadas podem conter JSON (ex: hpack headers) com {, }, :
+        # que o Loguru interpreta como format placeholders → ValueError/KeyError
+        # Ref: https://loguru.readthedocs.io/en/stable/resources/troubleshooting.rst
+        message = record.getMessage()
+        escaped_message = message.replace("{", "{{").replace("}", "}}")
+
         logger.bind(
             event="GENERAL",
             source=record.name  # uvicorn, litellm, httpx, etc.
         ).opt(
             depth=depth,
             exception=record.exc_info
-        ).log(level, record.getMessage())
+        ).log(level, escaped_message)
 
 
 def setup_stdlib_intercept():
@@ -68,7 +76,7 @@ def setup_stdlib_intercept():
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
     # Interceptar loggers específicos de terceiros
-    # Correção: Adicionar 'LiteLLM', 'httpx', 'httpcore' para reduzir ruído HTTP
+    # Correção: Adicionar 'LiteLLM', 'httpx', 'httpcore', 'hpack' para reduzir ruído HTTP
     intercepted_loggers = [
         'uvicorn',
         'uvicorn.error',
@@ -77,7 +85,9 @@ def setup_stdlib_intercept():
         'litellm',
         'LiteLLM',  # LiteLLM com L maiúsculo
         'httpx',
-        'httpcore'
+        'httpcore',
+        'hpack',      # HTTP/2 header compression (muito verboso em DEBUG)
+        'hpack.hpack'
     ]
 
     for logger_name in intercepted_loggers:
@@ -86,7 +96,7 @@ def setup_stdlib_intercept():
         _logger.propagate = False
 
         # Reduzir ruído: loggers muito verbosos em DEBUG
-        if logger_name in ('httpx', 'httpcore', 'litellm', 'LiteLLM'):
+        if logger_name in ('httpx', 'httpcore', 'litellm', 'LiteLLM', 'hpack', 'hpack.hpack'):
             _logger.setLevel(logging.WARNING)  # Só erros/avisos
 
 
@@ -124,6 +134,11 @@ def configure_logger():
 
     # Criar diretório de logs
     log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Log informativo do path absoluto (para debugging)
+    # Imprime ANTES de remover o handler padrão para garantir visibilidade
+    abs_log_path = log_dir.absolute()
+    print(f"[Loguru Init] Log files directory: {abs_log_path}")
 
     # Remover handler padrão
     logger.remove()
