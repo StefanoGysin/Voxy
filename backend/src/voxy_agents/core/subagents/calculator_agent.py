@@ -4,16 +4,16 @@ Calculator Subagent - OpenAI Agents SDK Implementation
 Subagente especializado em cálculos matemáticos.
 Usa capacidades nativas do modelo para matemática avançada.
 Agora configurável via LiteLLM para suporte a múltiplos providers (OpenRouter, OpenAI, etc.).
+
+Migração Loguru - Sprint 5
 """
 
-import logging
+from loguru import logger
 
 from agents import Agent, ModelSettings
 
 from ...config.models_config import load_calculator_config
 from ...utils.llm_factory import create_litellm_model
-
-logger = logging.getLogger(__name__)
 
 
 class CalculatorAgent:
@@ -63,9 +63,12 @@ class CalculatorAgent:
         # Store config for reference
         self.config = config
 
-        logger.info(
-            f"Calculator subagent initialized: {config.provider}/{config.model_name} "
-            f"(max_tokens={config.max_tokens}, temperature={config.temperature})"
+        logger.bind(event="CALCULATOR_AGENT|INIT").info(
+            "Calculator subagent initialized",
+            provider=config.provider,
+            model=config.model_name,
+            max_tokens=config.max_tokens,
+            temperature=config.temperature
         )
 
     def _get_instructions(self) -> str:

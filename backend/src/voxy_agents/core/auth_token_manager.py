@@ -1,6 +1,8 @@
 """
 Token management service for VOXY Agents.
 Handles JWT token blacklisting and validation using Redis.
+
+Migração Loguru - Sprint 4
 """
 
 import asyncio
@@ -10,6 +12,8 @@ from typing import Optional
 
 import redis
 import jwt
+from loguru import logger
+
 from ..config.settings import settings
 
 
@@ -27,10 +31,12 @@ class TokenManager:
             )
             # Test connection
             self.redis_client.ping()
-            print("✅ Redis connected for token management")
+            logger.bind(event="AUTH_TOKEN|REDIS_CONNECT").info("Redis connected for token management")
         except Exception as e:
-            print(f"⚠️ Redis connection failed: {e}")
-            print("⚠️ Token blacklisting will be disabled")
+            logger.bind(event="AUTH_TOKEN|REDIS_CONNECT_ERROR").warning(
+                "Redis connection failed - token blacklisting disabled",
+                error=str(e)
+            )
             self.redis_client = None
 
     def _get_blacklist_key(self, jti: str) -> str:
@@ -54,7 +60,7 @@ class TokenManager:
             True if successfully blacklisted, False otherwise
         """
         if not self.redis_client:
-            print("⚠️ Redis not available, cannot blacklist token")
+            logger.bind(event="AUTH_TOKEN|BLACKLIST_UNAVAILABLE").warning("Redis not available, cannot blacklist token")
             return False
             
         try:
@@ -63,7 +69,7 @@ class TokenManager:
             ttl = int((expiration - now).total_seconds())
             
             if ttl <= 0:
-                print(f"🕒 Token {jti} already expired, no need to blacklist")
+                logger.bind(event="AUTH_TOKEN|BLACKLIST_EXPIRED").debug("Token already expired, no need to blacklist", jti=jti[:16])
                 return True
                 
             # Store in blacklist with TTL
@@ -81,11 +87,20 @@ class TokenManager:
                 json.dumps(token_info)
             )
             
-            print(f"🚫 Token {jti} blacklisted for user {user_id} (TTL: {ttl}s)")
+            logger.bind(event="AUTH_TOKEN|BLACKLIST_SUCCESS").info(
+                "Token blacklisted",
+                jti=jti[:16],
+                user_id=user_id[:16],
+                ttl_seconds=ttl
+            )
             return True
-            
+
         except Exception as e:
-            print(f"❌ Failed to blacklist token {jti}: {e}")
+            logger.bind(event="AUTH_TOKEN|BLACKLIST_ERROR").error(
+                "Failed to blacklist token",
+                jti=jti[:16],
+                error=str(e)
+            )
             return False
 
     async def is_token_blacklisted(self, jti: str) -> bool:
@@ -108,12 +123,16 @@ class TokenManager:
             
             is_blacklisted = result is not None
             if is_blacklisted:
-                print(f"🚫 Token {jti} is blacklisted")
-                
+                logger.bind(event="AUTH_TOKEN|IS_BLACKLISTED").debug("Token is blacklisted", jti=jti[:16])
+
             return is_blacklisted
-            
+
         except Exception as e:
-            print(f"❌ Failed to check token blacklist for {jti}: {e}")
+            logger.bind(event="AUTH_TOKEN|CHECK_BLACKLIST_ERROR").error(
+                "Failed to check token blacklist",
+                jti=jti[:16],
+                error=str(e)
+            )
             # On error, assume token is valid for security
             return False
 
@@ -156,9 +175,13 @@ class TokenManager:
             )
             
             return True
-            
+
         except Exception as e:
-            print(f"❌ Failed to store token info for {jti}: {e}")
+            logger.bind(event="AUTH_TOKEN|STORE_INFO_ERROR").error(
+                "Failed to store token info",
+                jti=jti[:16],
+                error=str(e)
+            )
             return False
 
     async def get_token_info(self, jti: str) -> Optional[dict]:
@@ -181,9 +204,13 @@ class TokenManager:
             if result:
                 return json.loads(result)
             return None
-            
+
         except Exception as e:
-            print(f"❌ Failed to get token info for {jti}: {e}")
+            logger.bind(event="AUTH_TOKEN|GET_INFO_ERROR").error(
+                "Failed to get token info",
+                jti=jti[:16],
+                error=str(e)
+            )
             return None
 
     async def blacklist_user_tokens(self, user_id: str) -> int:
@@ -231,14 +258,26 @@ class TokenManager:
                                 blacklisted_count += 1
                                 
                 except Exception as e:
-                    print(f"❌ Error processing token {info_key}: {e}")
+                    logger.bind(event="AUTH_TOKEN|PROCESS_TOKEN_ERROR").error(
+                        "Error processing token",
+                        info_key=info_key,
+                        error=str(e)
+                    )
                     continue
-            
-            print(f"🚫 Blacklisted {blacklisted_count} tokens for user {user_id}")
+
+            logger.bind(event="AUTH_TOKEN|BLACKLIST_USER_TOKENS").info(
+                "Blacklisted user tokens",
+                user_id=user_id[:16],
+                count=blacklisted_count
+            )
             return blacklisted_count
-            
+
         except Exception as e:
-            print(f"❌ Failed to blacklist user tokens for {user_id}: {e}")
+            logger.bind(event="AUTH_TOKEN|BLACKLIST_USER_TOKENS_ERROR").error(
+                "Failed to blacklist user tokens",
+                user_id=user_id[:16],
+                error=str(e)
+            )
             return 0
 
     def get_redis_stats(self) -> dict:

@@ -10,24 +10,24 @@ Features:
 - Intelligent caching system (L1 + L2)
 - Adaptive reasoning optimization
 - Cost tracking and rate limiting
+
+Migração Loguru - Sprint 5
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any, Optional
 
 import nest_asyncio
 from agents import Agent, Runner
 from agents.extensions.models.litellm_model import LitellmModel
+from loguru import logger
 from pydantic import BaseModel
 
 from ...config.models_config import load_vision_config
 from ..cache.vision_cache import VisionCache
 from ..optimization.adaptive_reasoning import AnalysisContext, adaptive_reasoning
 from ..optimization.pipeline_optimizer import pipeline_optimizer
-
-logger = logging.getLogger(__name__)
 
 
 class VisionAnalysisResult(BaseModel):
@@ -95,9 +95,10 @@ class VisionAgent:
         self.requests_in_current_minute = 0
         self.requests_in_current_hour = 0
 
-        logger.info(
-            f"Vision Agent initialized: {self.config.get_litellm_model_path()} "
-            f"(provider: {self.config.provider})"
+        logger.bind(event="VISION_AGENT|INIT").info(
+            "Vision Agent initialized",
+            model=self.config.get_litellm_model_path(),
+            provider=self.config.provider
         )
 
     async def analyze_image(
@@ -125,7 +126,10 @@ class VisionAgent:
         self.analysis_count += 1
 
         try:
-            logger.info(f"🖼️ Vision analysis starting for {image_url[:100]}...")
+            logger.bind(event="VISION_AGENT|ANALYSIS_START").info(
+                "Vision analysis starting",
+                image_url=image_url[:100]
+            )
 
             # 1. Check intelligent cache first
             cached_analysis = await self.vision_cache.get_cached_analysis(
@@ -136,8 +140,9 @@ class VisionAgent:
                 result, metadata = cached_analysis
                 processing_time = (datetime.now() - start_time).total_seconds()
 
-                logger.info(
-                    f"🎯 Cache HIT: Returning cached result in {processing_time:.3f}s"
+                logger.bind(event="VISION_AGENT|CACHE_HIT").info(
+                    "Cache HIT: Returning cached result",
+                    processing_time=processing_time
                 )
 
                 # Return structured result from cache
@@ -200,15 +205,20 @@ class VisionAgent:
             api_start = datetime.now()
 
             try:
-                logger.info(
-                    f"🚀 Vision analysis: model={self.config.model_name}, reasoning={reasoning_effort}"
+                logger.bind(event="VISION_AGENT|API_CALL").info(
+                    "Vision API call starting",
+                    model=self.config.model_name,
+                    reasoning=reasoning_effort
                 )
 
                 # Runner.run() with multimodal messages (posicional, não nomeado)
                 result = await Runner.run(self.agent, messages)
 
                 api_duration = (datetime.now() - api_start).total_seconds()
-                logger.info(f"✅ Vision completed in {api_duration:.2f}s")
+                logger.bind(event="VISION_AGENT|API_SUCCESS").info(
+                    "Vision API call completed",
+                    api_duration=api_duration
+                )
 
                 # Update adaptive reasoning performance stats
                 adaptive_reasoning.update_performance_stats(
@@ -224,7 +234,11 @@ class VisionAgent:
 
             except Exception as e:
                 api_duration = (datetime.now() - api_start).total_seconds()
-                logger.error(f"❌ Vision analysis failed after {api_duration:.2f}s: {e}")
+                logger.bind(event="VISION_AGENT|API_ERROR").error(
+                    "Vision API call failed",
+                    api_duration=api_duration,
+                    error=str(e)
+                )
                 raise
 
             # 8. Process response (content já extraído)
@@ -250,9 +264,11 @@ class VisionAgent:
             )
 
             # 11. Build structured result
-            logger.info(
-                f"✅ Vision analysis completed in {total_processing_time:.2f}s "
-                f"using {self.config.model_name} (cost: ${cost:.4f})"
+            logger.bind(event="VISION_AGENT|ANALYSIS_COMPLETE").info(
+                "Vision analysis completed successfully",
+                processing_time=total_processing_time,
+                model=self.config.model_name,
+                cost=cost
             )
 
             return VisionAnalysisResult(
@@ -278,7 +294,11 @@ class VisionAgent:
 
         except Exception as e:
             processing_time = (datetime.now() - start_time).total_seconds()
-            logger.error(f"❌ Vision analysis failed after {processing_time:.2f}s: {e}")
+            logger.bind(event="VISION_AGENT|ANALYSIS_ERROR").error(
+                "Vision analysis failed",
+                processing_time=processing_time,
+                error=str(e)
+            )
 
             return VisionAnalysisResult(
                 success=False,
@@ -457,7 +477,10 @@ class VisionAgent:
             return round(total_cost, 6)
 
         except Exception as e:
-            logger.warning(f"Failed to extract cost from result: {e}")
+            logger.bind(event="VISION_AGENT|COST_EXTRACTION_ERROR").warning(
+                "Failed to extract cost from result",
+                error=str(e)
+            )
             return 0.02  # Conservative fallback estimate
 
     @pipeline_optimizer.skip_redundant_validations
@@ -519,7 +542,10 @@ class VisionAgent:
             return "análise" in result.lower() or not metadata.get("error")
 
         except Exception as e:
-            logger.error(f"Health check failed for vision agent: {e}")
+            logger.bind(event="VISION_AGENT|HEALTH_CHECK_ERROR").error(
+                "Health check failed for vision agent",
+                error=str(e)
+            )
             return False
 
     # Compatibility methods for VOXY Orchestrator integration

@@ -3,16 +3,16 @@ Translator Subagent - OpenAI Agents SDK Implementation
 
 Subagente especializado em tradução usando capacidades nativas do modelo.
 Implementa as decisões do CREATIVE MODE para otimização multi-modelo.
+
+Migração Loguru - Sprint 5
 """
 
-import logging
+from loguru import logger
 
 from agents import Agent, ModelSettings
 
 from ...config.models_config import load_translator_config
 from ...utils.llm_factory import create_litellm_model
-
-logger = logging.getLogger(__name__)
 
 
 class TranslatorAgent:
@@ -42,7 +42,11 @@ class TranslatorAgent:
         )
 
         self.config = config
-        logger.info(f"Translator subagent initialized: {config.provider}/{config.model_name}")
+        logger.bind(event="TRANSLATOR_AGENT|INIT").info(
+            "Translator subagent initialized",
+            provider=config.provider,
+            model=config.model_name
+        )
 
     def _get_instructions(self) -> str:
         """Get specialized instructions for translation."""

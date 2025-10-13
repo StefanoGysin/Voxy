@@ -9,21 +9,21 @@ Architecture:
 - Subagents are registered as tools via .as_tool()
 - OpenAI Agents SDK handles sessions, streaming, and tool calls
 - Implements the creative decisions from CREATIVE MODE
+
+Migração Loguru - Sprint 4
 """
 
-import logging
 from datetime import datetime
 from typing import Any, Optional
 
 from agents import Agent, Runner, function_tool
+from loguru import logger
 from openai import AsyncOpenAI
 
 from ..config.settings import settings
 from .database.supabase_integration import SupabaseSession
 from .guardrails.safety_check import SafetyChecker
 from .subagents.vision_agent import VisionAnalysisResult, get_vision_agent
-
-logger = logging.getLogger(__name__)
 
 
 class VoxyOrchestrator:
@@ -62,7 +62,7 @@ class VoxyOrchestrator:
             api_key=settings.openai_api_key, timeout=30.0, max_retries=1
         )
 
-        logger.info(
+        logger.bind(event="VOXY_ORCHESTRATOR|INIT").info(
             f"VOXY Orchestrator initialized with LiteLLM:\n"
             f"   ├─ Provider: {self.config.provider}\n"
             f"   ├─ Model: {self.config.get_litellm_model_path()}\n"
@@ -88,7 +88,9 @@ class VoxyOrchestrator:
             "tool_name": tool_name,
             "description": description,
         }
-        logger.info(f"Registered subagent: {name} as tool '{tool_name}'")
+        logger.bind(event="VOXY_ORCHESTRATOR|SUBAGENT_REGISTERED").info(
+            f"Registered subagent: {name} as tool '{tool_name}'"
+        )
 
     def _initialize_voxy_agent(self) -> None:
         """Initialize the main VOXY agent with registered subagents as tools."""
@@ -160,7 +162,7 @@ class VoxyOrchestrator:
             # Note: input_guardrails temporarily disabled for testing
         )
 
-        logger.info(
+        logger.bind(event="VOXY_ORCHESTRATOR|AGENT_INIT").info(
             f"VOXY agent initialized:\n"
             f"   ├─ Model: {self.config.get_litellm_model_path()}\n"
             f"   ├─ Provider: {self.config.provider}\n"
@@ -383,7 +385,10 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             return conversational_response
 
         except Exception as e:
-            logger.error(f"Conversationalization failed: {e}, returning raw analysis")
+            logger.bind(event="VOXY_ORCHESTRATOR|CONVERSATIONALIZATION_ERROR").error(
+                "Conversationalization failed, returning raw analysis",
+                error=str(e)
+            )
             # Fallback: return raw analysis if conversationalization fails
             return vision_result.analysis
 
@@ -447,7 +452,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
 
             # 🖼️ VISION AGENT - GPT-5 multimodal analysis with lightweight post-processing
             if image_url and self._is_vision_request(message):
-                logger.info("🎯 PATH 1: Vision bypass with lightweight post-processing")
+                logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1").info("PATH 1: Vision bypass with lightweight post-processing")
 
                 try:
                     # Determine analysis type and detail level from message
@@ -525,7 +530,10 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                     return conversational_response, metadata
 
                 except Exception as vision_error:
-                    logger.error(f"❌ PATH 1 failed: {vision_error}, falling back to PATH 2")
+                    logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1_ERROR").error(
+                        "PATH 1 failed, falling back to PATH 2",
+                        error=str(vision_error)
+                    )
                     # Fallback to PATH 2 (VOXY decision) by clearing image_url
                     image_url = None
 
@@ -553,10 +561,13 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                         f"{message}\n\n[IMAGEM PARA ANÁLISE]: {image_url}"
                     )
 
-                logger.info(f"🖼️ Image analysis requested: {image_url[:100]}...")
-                logger.info(f"📝 Full processed message: {processed_message}")
+                logger.bind(event="VOXY_ORCHESTRATOR|IMAGE_ANALYSIS").info(
+                    "Image analysis requested",
+                    image_url=image_url[:100],
+                    message=processed_message[:100]
+                )
             else:
-                logger.info(f"📝 No image URL provided. Message: {message}")
+                logger.bind(event="VOXY_ORCHESTRATOR|TEXT_ONLY").debug("No image URL provided", message=message[:100])
 
             # Use OpenAI Agents SDK v0.2.8 with automatic session management
             result = await Runner.run(
@@ -584,7 +595,10 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
 
             if hasattr(result, "tool_calls") and result.tool_calls:
                 tools_used = [call.tool_name for call in result.tool_calls]
-                logger.info(f"🔧 PATH 2 - Tools used: {', '.join(tools_used)}")
+                logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").info(
+                    "PATH 2 - Tools used",
+                    tools=tools_used
+                )
 
                 # If only one tool was used, update agent_type to reflect the specific agent
                 if len(tools_used) == 1:
@@ -644,7 +658,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             return response_text, metadata
 
         except Exception as e:
-            logger.error(f"❌ [TRACE:{trace_id}] Error processing request: {e}")
+            logger.bind(event="VOXY_ORCHESTRATOR|ERROR", trace_id=trace_id).exception("Error processing request")
             error_metadata = {
                 "agent_type": "error",
                 "tools_used": [],

@@ -10,11 +10,25 @@ Arquitetura:
 - Vision Agent integrado diretamente no orquestrador
 - Sistema de sessões para contexto persistente
 - Análise avançada de imagens com GPT-5 multimodal
+
+⚠️ ORDEM DE IMPORTS É CRÍTICA PARA LOGGING
+1️⃣ Configurar Loguru
+2️⃣ Instalar InterceptHandler
+3️⃣ Importar outros módulos
 """
 
+# ===== 1️⃣ PRIMEIRO: Configurar Loguru =====
+from .config.logger_config import configure_logger
+configure_logger()
+
+# ===== 2️⃣ SEGUNDO: Instalar InterceptHandler ANTES de outros imports =====
+from .config.logger_config import setup_stdlib_intercept
+setup_stdlib_intercept()
+
+# ===== 3️⃣ TERCEIRO: AGORA importar outros módulos =====
 import asyncio
-import logging
 from typing import Any, Optional
+from loguru import logger
 
 from .core.subagents.calculator_agent import get_calculator_agent
 from .core.subagents.corrector_agent import get_corrector_agent
@@ -23,10 +37,6 @@ from .core.subagents.weather_agent import get_weather_agent
 from .core.voxy_orchestrator import get_voxy_orchestrator
 
 # from agents import SupabaseSession  # Will be added later
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class VOXYSystem:
@@ -42,7 +52,7 @@ class VOXYSystem:
         self.orchestrator = get_voxy_orchestrator()
         self._setup_subagents()
 
-        logger.info("VOXY System initialized successfully")
+        logger.bind(event="VOXY_SYSTEM|INIT").info("VOXY System initialized successfully")
 
     def _setup_subagents(self):
         """Register all subagents as tools for VOXY."""
@@ -81,9 +91,9 @@ class VOXYSystem:
         # Vision Agent is integrated directly in VOXY Orchestrator as analyze_image tool
         # No separate registration needed - it's built into the orchestrator
 
-        logger.info(
-            "All 5 subagents registered successfully "
-            "(translator, corrector, weather, calculator, vision)"
+        logger.bind(event="VOXY_SYSTEM|SUBAGENTS_REGISTERED").info(
+            "All 5 subagents registered successfully",
+            subagents=["translator", "corrector", "weather", "calculator", "vision"]
         )
 
     async def chat(
@@ -114,7 +124,7 @@ class VOXYSystem:
             return response, metadata
 
         except Exception as e:
-            logger.error(f"Error in VOXY chat: {e}")
+            logger.bind(event="VOXY_SYSTEM|CHAT_ERROR").exception("Error in VOXY chat")
             error_metadata: dict[str, str | list | None] = {
                 "agent_type": "system_error",
                 "tools_used": [],

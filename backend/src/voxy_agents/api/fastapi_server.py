@@ -24,11 +24,11 @@ from pydantic import BaseModel
 
 from ..main import get_voxy_system
 from .middleware.auth import TokenData
+from .middleware.logging_context import LoggingContextMiddleware
 from .routes import auth_router, chat_router, images_router, sessions_router
 from .routes.messages import router as messages_router
 from .routes.test import router as test_router
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 # Pydantic models for API - Chat models moved to routes/chat.py
@@ -125,6 +125,9 @@ app = FastAPI(
 
 manager = ConnectionManager()
 start_time = datetime.now()
+
+# Logging Context Middleware - DEVE vir ANTES do CORS para capturar tudo
+app.add_middleware(LoggingContextMiddleware)
 
 # CORS middleware for frontend communication
 app.add_middleware(
