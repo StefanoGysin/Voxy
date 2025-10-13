@@ -18,8 +18,9 @@ class InterceptHandler(logging.Handler):
     Captura logs de FastAPI, Uvicorn, LiteLLM e outras bibliotecas.
 
     Features:
-    - Preserva contexto de origem (record.name como event)
-    - Mapeia níveis automaticamente (httpcore debug -> TRACE)
+    - Preserva contexto de origem (record.name armazenado em 'source')
+    - Mantém padrão event="GENERAL" para logs externos
+    - Rastreabilidade via campo 'source' (uvicorn, litellm, httpx, etc.)
 
     Fonte: https://loguru.readthedocs.io/en/stable/resources/migration.html
     """
@@ -32,11 +33,6 @@ class InterceptHandler(logging.Handler):
         except ValueError:
             level = record.levelno
 
-        # Mapeamento de níveis para bibliotecas barulhentas
-        # httpcore debug -> TRACE para reduzir ruído
-        if record.name in ('httpcore', 'httpx') and record.levelno == logging.DEBUG:
-            level = "TRACE"
-
         # Find caller from where originated the logged message
         frame, depth = inspect.currentframe(), 0
         while frame:
@@ -48,11 +44,12 @@ class InterceptHandler(logging.Handler):
             frame = frame.f_back
             depth += 1
 
-        # Preservar contexto de origem: usar record.name como event
-        # Evita que logs externos caiam no bucket genérico GENERAL
-        event_name = record.name.upper().replace('.', '_')
-
-        logger.bind(event=event_name).opt(
+        # Preservar contexto de origem via campo 'source'
+        # Mantém padrão event="GENERAL" + rastreabilidade por source
+        logger.bind(
+            event="GENERAL",
+            source=record.name  # uvicorn, litellm, httpx, etc.
+        ).opt(
             depth=depth,
             exception=record.exc_info
         ).log(level, record.getMessage())
@@ -136,9 +133,10 @@ def configure_logger():
     # SINK 1: Console (desenvolvimento apenas)
     if env == "development":
         # diagnose=True apenas em dev para tracebacks ricos
+        # source mostra origem de logs externos (uvicorn, litellm, etc.)
         logger.add(
             sys.stdout,
-            format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{extra[event]}</cyan> | {message}",
+            format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{extra[event]}</cyan> | <blue>{extra[source]:-}</blue> | {message}",
             level=log_level,
             colorize=True,
             enqueue=False,  # Console não precisa de enqueue
