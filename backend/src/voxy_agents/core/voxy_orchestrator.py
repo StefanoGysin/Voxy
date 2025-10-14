@@ -595,13 +595,45 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             tools_used = []
             agent_type = "voxy"  # Default to voxy (orchestrator)
 
+            # Debug: Log result structure to understand what's available
+            logger.debug(
+                f"Runner result type: {type(result)}, "
+                f"attributes: {[attr for attr in dir(result) if not attr.startswith('_')]}"
+            )
+
+            # Try multiple ways to extract tool calls from Runner result
+            # Method 1: Check for tool_calls attribute (direct)
             if hasattr(result, "tool_calls") and result.tool_calls:
                 tools_used = [call.tool_name for call in result.tool_calls]
                 logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").info(
-                    "PATH 2 - Tools used",
+                    "PATH 2 - Tools used (method 1: direct tool_calls)",
                     tools=tools_used
                 )
+            # Method 2: Check messages for tool_calls (common pattern)
+            elif hasattr(result, "messages") and result.messages:
+                for msg in result.messages:
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        tools_used.extend([call.function.name if hasattr(call, "function") else str(call) for call in msg.tool_calls])
+                if tools_used:
+                    logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").info(
+                        "PATH 2 - Tools used (method 2: from messages)",
+                        tools=tools_used
+                    )
+            # Method 3: Check data attribute (fallback)
+            elif hasattr(result, "data") and isinstance(result.data, dict):
+                if "tool_calls" in result.data:
+                    tools_used = [tc.get("name", "unknown") for tc in result.data["tool_calls"]]
+                    logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").info(
+                        "PATH 2 - Tools used (method 3: from data)",
+                        tools=tools_used
+                    )
 
+            if not tools_used:
+                logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").warning(
+                    "No tools extracted from result - may need to adjust extraction logic"
+                )
+            else:
+                # Determine agent_type based on tools used
                 # If only one tool was used, update agent_type to reflect the specific agent
                 if len(tools_used) == 1:
                     tool_name = tools_used[0]

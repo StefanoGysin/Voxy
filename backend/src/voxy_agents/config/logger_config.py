@@ -83,10 +83,11 @@ def setup_stdlib_intercept():
         'uvicorn.access',
         'fastapi',
         'litellm',
-        'LiteLLM',  # LiteLLM com L maiúsculo
+        'LiteLLM',         # LiteLLM com L maiúsculo
+        'LiteLLM Proxy',   # LiteLLM Proxy warnings (backoff dependency)
         'httpx',
         'httpcore',
-        'hpack',      # HTTP/2 header compression (muito verboso em DEBUG)
+        'hpack',           # HTTP/2 header compression (muito verboso em DEBUG)
         'hpack.hpack'
     ]
 
@@ -96,8 +97,8 @@ def setup_stdlib_intercept():
         _logger.propagate = False
 
         # Reduzir ruído: loggers muito verbosos em DEBUG
-        if logger_name in ('httpx', 'httpcore', 'litellm', 'LiteLLM', 'hpack', 'hpack.hpack'):
-            _logger.setLevel(logging.WARNING)  # Só erros/avisos
+        if logger_name in ('httpx', 'httpcore', 'litellm', 'LiteLLM', 'LiteLLM Proxy', 'hpack', 'hpack.hpack'):
+            _logger.setLevel(logging.ERROR)  # Só erros críticos
 
 
 def _format_performance(record):

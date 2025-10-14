@@ -530,7 +530,7 @@ class SupabaseSession:
 
                 # Debug log - show both raw and processed content
                 raw_content_preview = str(raw_content)[:100] if raw_content else ""
-                logger.info(
+                logger.debug(
                     f"💾 Raw content type: {type(raw_content)}, preview: {raw_content_preview}"
                 )
 
@@ -570,13 +570,13 @@ class SupabaseSession:
                     )
 
                 # Debug log after processing
-                logger.info(
+                logger.debug(
                     f"💾 Processed content: {content[:100] if content else 'EMPTY'}"
                 )
 
                 # Skip saving empty content to avoid database clutter
                 if not content or content.strip() == "":
-                    logger.warning(
+                    logger.debug(
                         f"⚠️ Skipping empty content for session {self.session_id}"
                     )
                     continue
