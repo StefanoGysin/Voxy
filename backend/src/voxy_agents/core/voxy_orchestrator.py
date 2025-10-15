@@ -10,13 +10,15 @@ Architecture:
 - OpenAI Agents SDK handles sessions, streaming, and tool calls
 - Implements the creative decisions from CREATIVE MODE
 
-Migração Loguru - Sprint 4
+Migração Loguru - Sprint 4 + Sprint Multi-Agent Hierarchical Logging
 """
 
+import json
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
-from agents import Agent, Runner, function_tool
+from agents import Agent, Runner, function_tool, ModelSettings
 from loguru import logger
 from openai import AsyncOpenAI
 
@@ -24,6 +26,40 @@ from ..config.settings import settings
 from .database.supabase_integration import SupabaseSession
 from .guardrails.safety_check import SafetyChecker
 from .subagents.vision_agent import VisionAnalysisResult, get_vision_agent
+
+
+@dataclass
+class ToolInvocation:
+    """
+    Representa uma invocação de tool/subagente capturada durante execução.
+
+    Attributes:
+        tool_name: Nome da ferramenta (get_weather, translate_text, etc.)
+        agent_name: Nome amigável do subagente (Weather Agent, Translator Agent, etc.)
+        model: Modelo LLM usado pelo subagente
+        config: Configuração do subagente (tokens, temperature, etc.)
+        input_args: Argumentos passados para o tool (dict)
+        output: Resposta retornada pelo tool (string)
+        call_id: ID único da chamada (para debugging)
+    """
+    tool_name: str
+    agent_name: str
+    model: str
+    config: dict
+    input_args: dict
+    output: str
+    call_id: str
+
+
+# Mapeamento de tool names para agent names amigáveis
+TOOL_TO_AGENT_MAP = {
+    "get_weather": "Weather Agent",
+    "translate_text": "Translator Agent",
+    "correct_text": "Corrector Agent",
+    "calculate": "Calculator Agent",
+    "analyze_image": "Vision Agent",
+    "web_search": "Web Search Agent",
+}
 
 
 class VoxyOrchestrator:
@@ -41,10 +77,19 @@ class VoxyOrchestrator:
 
         # Load LiteLLM configuration for orchestrator
         from ..config.models_config import load_orchestrator_config
-        from ..utils.llm_factory import create_litellm_model
+        from ..utils.llm_factory import create_litellm_model, get_reasoning_params
 
         self.config = load_orchestrator_config()
         self.litellm_model = create_litellm_model(self.config)
+
+        # Extract reasoning parameters for runtime use
+        self.reasoning_params = get_reasoning_params(self.config)
+
+        if self.reasoning_params:
+            logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CONFIG").info(
+                "Orchestrator reasoning configured",
+                params=list(self.reasoning_params.keys())
+            )
 
         # Safety checker
         self.safety_checker = SafetyChecker()
@@ -155,12 +200,28 @@ class VoxyOrchestrator:
 
         tools.append(web_search)
 
+        # Prepare ModelSettings with reasoning parameters
+        model_settings = None
+        if self.reasoning_params:
+            # Pass reasoning params via ModelSettings.extra_args
+            model_settings = ModelSettings(
+                extra_args=self.reasoning_params
+            )
+
+            logger.bind(event="VOXY_ORCHESTRATOR|MODEL_SETTINGS").info(
+                "ModelSettings configured with reasoning params",
+                params=self.reasoning_params
+            )
+
         # Create main VOXY agent with LiteLLM model
+        # IMPORTANT: Known SDK limitation - thinking blocks may be lost during tool calls
+        # See: https://github.com/openai/openai-agents-python/issues/678
         self.voxy_agent = Agent(
             name="VOXY",
             model=self.litellm_model,  # Use LiteLLM model instance
             instructions=self._get_voxy_instructions(),
             tools=tools,
+            model_settings=model_settings,  # Inject reasoning params
             # Note: input_guardrails temporarily disabled for testing
         )
 
@@ -170,6 +231,7 @@ class VoxyOrchestrator:
             f"   ├─ Provider: {self.config.provider}\n"
             f"   ├─ Max tokens: {self.config.max_tokens}\n"
             f"   ├─ Temperature: {self.config.temperature}\n"
+            f"   ├─ Reasoning: {'enabled' if self.reasoning_params else 'disabled'}\n"
             f"   └─ Tools: {len(tools)} registered"
         )
 
@@ -394,6 +456,201 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # Fallback: return raw analysis if conversationalization fails
             return vision_result.analysis
 
+    def _extract_tool_invocations(self, result) -> List[ToolInvocation]:
+        """
+        Extrai invocações de tools do RunResult para logging hierárquico.
+
+        Args:
+            result: RunResult do Runner.run()
+
+        Returns:
+            Lista de ToolInvocation com dados estruturados
+        """
+        invocations = []
+
+        if not hasattr(result, "new_items") or not result.new_items:
+            return invocations
+
+        # Build dictionary mapping call_id to tool call data
+        tool_calls = {}  # call_id -> {tool_name, input_args}
+        tool_outputs = {}  # call_id -> output
+
+        for item in result.new_items:
+            item_type = type(item).__name__
+
+            # Extract tool call information
+            if item_type == "ToolCallItem" and hasattr(item, 'raw_item'):
+                raw_item = item.raw_item
+                if hasattr(raw_item, 'call_id') and hasattr(raw_item, 'name'):
+                    call_id = raw_item.call_id
+                    tool_name = raw_item.name
+
+                    # Parse arguments (JSON string)
+                    input_args = {}
+                    if hasattr(raw_item, 'arguments'):
+                        try:
+                            input_args = json.loads(raw_item.arguments)
+                        except (json.JSONDecodeError, TypeError):
+                            input_args = {"raw": str(raw_item.arguments)}
+
+                    tool_calls[call_id] = {
+                        "tool_name": tool_name,
+                        "input_args": input_args
+                    }
+
+            # Extract tool output
+            elif item_type == "ToolCallOutputItem":
+                output = item.output if hasattr(item, 'output') else ""
+                # Extract call_id from raw_item (dict with tool_call_id)
+                if hasattr(item, 'raw_item') and isinstance(item.raw_item, dict):
+                    call_id = item.raw_item.get('tool_call_id') or item.raw_item.get('call_id')
+                    if call_id:
+                        tool_outputs[call_id] = output
+
+        # Match tool calls with outputs and load subagent configs
+        for call_id, call_data in tool_calls.items():
+            tool_name = call_data["tool_name"]
+            input_args = call_data["input_args"]
+            output = tool_outputs.get(call_id, "")
+
+            # Get friendly agent name
+            agent_name = TOOL_TO_AGENT_MAP.get(tool_name, tool_name)
+
+            # Load subagent config to get model and settings
+            model = "unknown"
+            config = {}
+
+            try:
+                if tool_name == "get_weather":
+                    from ..config.models_config import load_weather_config
+                    cfg = load_weather_config()
+                    model = cfg.get_litellm_model_path()
+                    config = {
+                        "max_tokens": cfg.max_tokens,
+                        "temperature": cfg.temperature
+                    }
+                elif tool_name == "translate_text":
+                    from ..config.models_config import load_translator_config
+                    cfg = load_translator_config()
+                    model = cfg.get_litellm_model_path()
+                    config = {
+                        "max_tokens": cfg.max_tokens,
+                        "temperature": cfg.temperature
+                    }
+                elif tool_name == "correct_text":
+                    from ..config.models_config import load_corrector_config
+                    cfg = load_corrector_config()
+                    model = cfg.get_litellm_model_path()
+                    config = {
+                        "max_tokens": cfg.max_tokens,
+                        "temperature": cfg.temperature
+                    }
+                elif tool_name == "calculate":
+                    from ..config.models_config import load_calculator_config
+                    cfg = load_calculator_config()
+                    model = cfg.get_litellm_model_path()
+                    config = {
+                        "max_tokens": cfg.max_tokens,
+                        "temperature": cfg.temperature
+                    }
+                elif tool_name == "analyze_image":
+                    from ..config.models_config import load_vision_config
+                    cfg = load_vision_config()
+                    model = cfg.get_litellm_model_path()
+                    config = {
+                        "max_tokens": cfg.max_tokens,
+                        "temperature": cfg.temperature,
+                        "reasoning_effort": cfg.reasoning_effort
+                    }
+            except Exception as e:
+                logger.bind(event="VOXY_ORCHESTRATOR|CONFIG_LOAD_ERROR").warning(
+                    f"Failed to load config for {tool_name}: {e}"
+                )
+
+            invocations.append(ToolInvocation(
+                tool_name=tool_name,
+                agent_name=agent_name,
+                model=model,
+                config=config,
+                input_args=input_args,
+                output=output[:200],  # Truncate for logging
+                call_id=call_id
+            ))
+
+        return invocations
+
+    def _format_hierarchical_log(
+        self,
+        invocations: List[ToolInvocation],
+        total_time: float,
+        trace_id: str,
+        reasoning_list: Optional[List[dict[str, str]]] = None
+    ) -> str:
+        """
+        Formata log hierárquico mostrando VOXY delegando para subagentes + reasoning.
+
+        Args:
+            invocations: Lista de tool invocations
+            total_time: Tempo total de processamento
+            trace_id: ID de rastreamento da requisição
+            reasoning_list: Lista de reasoning blocks capturados (opcional)
+
+        Returns:
+            String formatada com hierarquia visual + reasoning
+        """
+        lines = []
+
+        # Header: VOXY initialization
+        lines.append(f"🤖 [TRACE:{trace_id}] VOXY Multi-Agent Flow")
+        lines.append(f"   ├─ Model: {self.config.get_litellm_model_path()}")
+        lines.append(f"   ├─ Config: {self.config.max_tokens} tokens, temp={self.config.temperature}, reasoning={self.config.reasoning_effort}")
+        lines.append("   │")
+
+        # Body: Each subagent invocation
+        for idx, inv in enumerate(invocations):
+            is_last = (idx == len(invocations) - 1)
+            branch = "└─" if is_last else "├─"
+            continuation = "   " if is_last else "│  "
+
+            # Extract simplified input (first value from dict)
+            input_preview = ""
+            if inv.input_args:
+                first_value = next(iter(inv.input_args.values()), "")
+                input_preview = str(first_value)[:50]
+
+            lines.append(f"   {branch} 🔄 Delegou para: {inv.agent_name}")
+            lines.append(f"   {continuation}├─ Model: {inv.model}")
+
+            # Format config string
+            config_parts = [f"{k}={v}" for k, v in inv.config.items()]
+            config_str = ", ".join(config_parts) if config_parts else "default"
+            lines.append(f"   {continuation}├─ Config: {config_str}")
+
+            lines.append(f"   {continuation}├─ 📤 Input: \"{input_preview}{'...' if len(input_preview) >= 50 else ''}\"")
+            lines.append(f"   {continuation}├─ 📥 Output: \"{inv.output}{'...' if len(inv.output) >= 200 else ''}\"")
+
+            # Add reasoning if available for this invocation
+            if reasoning_list:
+                for reasoning_item in reasoning_list:
+                    reasoning_text = reasoning_item.get('reasoning', '')
+                    if reasoning_text:
+                        # Truncate reasoning to 150 chars for hierarchical log
+                        reasoning_preview = reasoning_text[:150]
+                        if len(reasoning_text) > 150:
+                            reasoning_preview += "..."
+                        lines.append(f"   {continuation}├─ 🧠 Reasoning: \"{reasoning_preview}\"")
+
+            lines.append(f"   {continuation}└─ ✓ Completed")
+
+            if not is_last:
+                lines.append("   │")
+
+        # Footer: Summary
+        lines.append("   │")
+        lines.append(f"   └─ ✓ Response compiled in {total_time:.2f}s")
+
+        return "\n".join(lines)
+
     async def chat(
         self,
         message: str,
@@ -571,7 +828,18 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             else:
                 logger.bind(event="VOXY_ORCHESTRATOR|TEXT_ONLY").debug("No image URL provided", message=message[:100])
 
+            # 🧠 Enable reasoning capture from SDK logs (backward compatibility)
+            from voxy_agents.utils.reasoning_capture import enable_reasoning_capture, clear_reasoning
+            clear_reasoning()  # Clear any previous reasoning
+            enable_reasoning_capture()
+
+            # 🌟 Clear universal reasoning capture buffer
+            from voxy_agents.utils.universal_reasoning_capture import clear_reasoning as clear_universal_reasoning
+            clear_universal_reasoning()
+
             # Use OpenAI Agents SDK v0.2.8 with automatic session management
+            # TODO: Pass reasoning_params to Runner once SDK supports it
+            # For now, reasoning params are configured at model level via LiteLLM
             result = await Runner.run(
                 self.voxy_agent,
                 processed_message,
@@ -595,60 +863,107 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             tools_used = []
             agent_type = "voxy"  # Default to voxy (orchestrator)
 
-            # Debug: Log result structure to understand what's available
-            logger.debug(
-                f"Runner result type: {type(result)}, "
-                f"attributes: {[attr for attr in dir(result) if not attr.startswith('_')]}"
-            )
+            # Extract tool invocations for hierarchical logging
+            invocations = self._extract_tool_invocations(result)
 
-            # Try multiple ways to extract tool calls from Runner result
-            # Method 1: Check for tool_calls attribute (direct)
-            if hasattr(result, "tool_calls") and result.tool_calls:
-                tools_used = [call.tool_name for call in result.tool_calls]
-                logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").info(
-                    "PATH 2 - Tools used (method 1: direct tool_calls)",
-                    tools=tools_used
+            # Extract tools_used list for backward compatibility
+            tools_used = [inv.tool_name for inv in invocations]
+
+            # 🧠 Capture reasoning from SDK logs (legacy system - backward compatibility)
+            from voxy_agents.utils.reasoning_capture import get_captured_reasoning, clear_reasoning
+            reasoning_list_legacy = get_captured_reasoning()
+
+            # 🌟 Capture reasoning from Universal System (new system)
+            from voxy_agents.utils.universal_reasoning_capture import get_captured_reasoning as get_universal_reasoning
+            reasoning_list_universal = get_universal_reasoning()
+
+            # Merge both reasoning sources (prioritize universal if available)
+            reasoning_list = reasoning_list_universal if reasoning_list_universal else reasoning_list_legacy
+
+            # Log summary of captured reasoning
+            if reasoning_list_universal:
+                logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").info(
+                    f"✅ Universal Reasoning: Captured {len(reasoning_list_universal)} block(s)",
+                    count=len(reasoning_list_universal),
+                    source="universal_system"
                 )
-            # Method 2: Check messages for tool_calls (common pattern)
-            elif hasattr(result, "messages") and result.messages:
-                for msg in result.messages:
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        tools_used.extend([call.function.name if hasattr(call, "function") else str(call) for call in msg.tool_calls])
-                if tools_used:
-                    logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").info(
-                        "PATH 2 - Tools used (method 2: from messages)",
-                        tools=tools_used
-                    )
-            # Method 3: Check data attribute (fallback)
-            elif hasattr(result, "data") and isinstance(result.data, dict):
-                if "tool_calls" in result.data:
-                    tools_used = [tc.get("name", "unknown") for tc in result.data["tool_calls"]]
-                    logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").info(
-                        "PATH 2 - Tools used (method 3: from data)",
-                        tools=tools_used
+                # Log each reasoning block (universal format)
+                for idx, reasoning_content in enumerate(reasoning_list_universal):
+                    thinking_text = reasoning_content.thinking_text or reasoning_content.thought_summary or ""
+                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(
+                        f"🧠 Reasoning {idx + 1}/{len(reasoning_list_universal)}",
+                        provider=reasoning_content.provider,
+                        model=reasoning_content.model,
+                        strategy=reasoning_content.extraction_strategy,
+                        thinking_preview=thinking_text[:200] if len(thinking_text) > 200 else thinking_text,
+                        thinking_length=len(thinking_text) if thinking_text else 0,
+                        reasoning_tokens=reasoning_content.reasoning_tokens,
+                        thinking_blocks_count=len(reasoning_content.thinking_blocks) if reasoning_content.thinking_blocks else 0,
+                        has_signature=bool(reasoning_content.signature)
                     )
 
-            if not tools_used:
-                logger.bind(event="VOXY_ORCHESTRATOR|PATH2_TOOLS").warning(
-                    "No tools extracted from result - may need to adjust extraction logic"
+            elif reasoning_list_legacy:
+                logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").info(
+                    f"✅ Legacy Reasoning: Captured {len(reasoning_list_legacy)} block(s)",
+                    count=len(reasoning_list_legacy),
+                    source="log_parsing"
                 )
+                # Log each reasoning block (legacy format)
+                for idx, r_item in enumerate(reasoning_list_legacy):
+                    reasoning_text = r_item.get('reasoning', '')
+                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(
+                        f"🧠 Reasoning {idx + 1}/{len(reasoning_list_legacy)} (legacy)",
+                        reasoning_preview=reasoning_text[:200] if len(reasoning_text) > 200 else reasoning_text,
+                        reasoning_length=len(reasoning_text),
+                        source=r_item.get('source', 'log_parsing')
+                    )
             else:
-                # Determine agent_type based on tools used
-                # If only one tool was used, update agent_type to reflect the specific agent
-                if len(tools_used) == 1:
-                    tool_name = tools_used[0]
-                    agent_type_map = {
-                        "translate_text": "translator",
-                        "correct_text": "corrector",
-                        "get_weather": "weather",
-                        "calculate": "calculator",
-                        "analyze_image": "vision",
-                        "web_search": "web_search",
-                    }
-                    agent_type = agent_type_map.get(tool_name, "voxy")
-                else:
-                    # Multiple tools used - VOXY orchestrated
-                    agent_type = "voxy"
+                logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").debug(
+                    "No reasoning content captured (model may not support reasoning or reasoning disabled)"
+                )
+
+            # Clear buffers for next call
+            if reasoning_list_legacy:
+                clear_reasoning()
+            if reasoning_list_universal:
+                clear_universal_reasoning()
+
+            # Determine agent_type based on tools used
+            if len(tools_used) == 1:
+                tool_name = tools_used[0]
+                agent_type_map = {
+                    "translate_text": "translator",
+                    "correct_text": "corrector",
+                    "get_weather": "weather",
+                    "calculate": "calculator",
+                    "analyze_image": "vision",
+                    "web_search": "web_search",
+                }
+                agent_type = agent_type_map.get(tool_name, "voxy")
+            elif len(tools_used) > 1:
+                # Multiple tools used - VOXY orchestrated
+                agent_type = "voxy"
+            else:
+                # No tools used - direct VOXY response
+                agent_type = "voxy"
+
+            # Generate and log hierarchical multi-agent flow (if tools were used)
+            if invocations:
+                # Debug: Check if reasoning_list is populated
+                logger.bind(event="VOXY_ORCHESTRATOR|HIER_LOG_DEBUG").debug(
+                    "Generating hierarchical log",
+                    has_reasoning=bool(reasoning_list),
+                    reasoning_count=len(reasoning_list) if reasoning_list else 0
+                )
+                hierarchical_log = self._format_hierarchical_log(
+                    invocations=invocations,
+                    total_time=processing_time,
+                    trace_id=trace_id,
+                    reasoning_list=reasoning_list if reasoning_list else None
+                )
+                logger.bind(event="VOXY_ORCHESTRATOR|MULTI_AGENT_FLOW").info(
+                    f"\n{hierarchical_log}"
+                )
 
             # Create metadata object
             metadata = {

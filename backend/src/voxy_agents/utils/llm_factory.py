@@ -6,7 +6,7 @@ through LiteLLM (OpenRouter, OpenAI, Anthropic, etc.).
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from agents.extensions.models.litellm_model import LitellmModel
 
@@ -170,3 +170,73 @@ def get_model_info(model_path: str) -> dict:
             "model": model_path,
             "full_path": model_path,
         }
+
+
+def get_reasoning_params(config: SubagentModelConfig) -> Dict[str, Any]:
+    """
+    Extract reasoning/thinking parameters from model configuration.
+
+    These parameters should be passed to the Agent when running inference,
+    not when creating the model instance.
+
+    Args:
+        config: SubagentModelConfig with reasoning configuration
+
+    Returns:
+        dict: Reasoning parameters for LiteLLM API call
+            - For Claude: {"thinking": {"type": "enabled", "budget_tokens": 10000}}
+            - For Gemini: {"thinking_config": {"thinking_budget": 1024}}
+            - For OpenAI: {"reasoning_effort": "medium"}
+            - For others: {} (empty dict)
+
+    Example:
+        >>> config = load_orchestrator_config()
+        >>> params = get_reasoning_params(config)
+        >>> # Use with Agent's model_config or extra_params
+        >>> runner = Runner(agent, additional_params=params)
+    """
+    if not config.reasoning_enabled:
+        logger.debug("Reasoning disabled for this agent")
+        return {}
+
+    reasoning_params = config.get_reasoning_params()
+
+    if reasoning_params:
+        logger.debug(
+            f"Reasoning parameters extracted for {config.provider}/{config.model_name}: "
+            f"{list(reasoning_params.keys())}"
+        )
+    else:
+        logger.debug(
+            f"No reasoning parameters configured for {config.provider}/{config.model_name}"
+        )
+
+    return reasoning_params
+
+
+def create_model_with_reasoning(
+    config: SubagentModelConfig,
+) -> tuple[LitellmModel, Dict[str, Any]]:
+    """
+    Create LiteLLM model and extract reasoning parameters in one call.
+
+    Convenience function that combines model creation and reasoning parameter extraction.
+
+    Args:
+        config: SubagentModelConfig with model and reasoning configuration
+
+    Returns:
+        tuple: (LitellmModel instance, reasoning parameters dict)
+
+    Example:
+        >>> config = load_orchestrator_config()
+        >>> model, reasoning_params = create_model_with_reasoning(config)
+        >>> # Use model with Agent, pass reasoning_params at runtime
+        >>> agent = Agent(model=model, ...)
+        >>> runner = Runner(agent)
+        >>> result = runner.run(..., **reasoning_params)
+    """
+    model = create_litellm_model(config)
+    reasoning_params = get_reasoning_params(config)
+
+    return model, reasoning_params

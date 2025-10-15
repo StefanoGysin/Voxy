@@ -28,6 +28,10 @@ class SubagentModelConfig:
         max_tokens: Maximum tokens in response
         temperature: Sampling temperature (0.0 = deterministic, 1.0 = creative)
         include_usage: Whether to track token usage
+        reasoning_enabled: Whether to enable reasoning/thinking capture
+        thinking_budget_tokens: Token budget for Claude Extended Thinking
+        gemini_thinking_budget: Token budget for Gemini Thinking Config
+        reasoning_effort: Reasoning effort level for OpenAI (minimal, low, medium, high)
     """
 
     provider: str
@@ -36,6 +40,12 @@ class SubagentModelConfig:
     max_tokens: int = 2000
     temperature: float = 0.1
     include_usage: bool = True
+
+    # Reasoning/Thinking configuration (optional)
+    reasoning_enabled: bool = True
+    thinking_budget_tokens: Optional[int] = None
+    gemini_thinking_budget: Optional[int] = None
+    reasoning_effort: Optional[str] = None
 
     def get_litellm_model_path(self) -> str:
         """
@@ -54,6 +64,40 @@ class SubagentModelConfig:
             # For other providers, use provider/model format
             return f"{self.provider}/{self.model_name}"
 
+    def get_reasoning_params(self) -> dict:
+        """
+        Get reasoning-specific parameters for LiteLLM request.
+
+        Returns:
+            dict: Extra parameters for reasoning/thinking based on provider
+        """
+        if not self.reasoning_enabled:
+            return {}
+
+        params = {}
+
+        # Claude Extended Thinking
+        if self.provider in ["anthropic", "claude"] or "claude" in self.model_name.lower():
+            if self.thinking_budget_tokens:
+                params["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": self.thinking_budget_tokens
+                }
+
+        # Gemini Thinking Config
+        elif self.provider in ["google", "gemini"] or "gemini" in self.model_name.lower():
+            if self.gemini_thinking_budget is not None:
+                params["thinking_config"] = {
+                    "thinking_budget": self.gemini_thinking_budget
+                }
+
+        # OpenAI Reasoning Effort
+        elif self.provider == "openai" or self.model_name.startswith("gpt-") or self.model_name.startswith("o1-"):
+            if self.reasoning_effort:
+                params["reasoning_effort"] = self.reasoning_effort
+
+        return params
+
 
 def load_calculator_config() -> SubagentModelConfig:
     """
@@ -67,6 +111,7 @@ def load_calculator_config() -> SubagentModelConfig:
         CALCULATOR_MAX_TOKENS: Max tokens (default: 2000)
         CALCULATOR_TEMPERATURE: Temperature (default: 0.1)
         CALCULATOR_INCLUDE_USAGE: Track usage (default: true)
+        CALCULATOR_REASONING_ENABLED: Enable reasoning capture (default: true)
 
     Returns:
         SubagentModelConfig: Calculator agent configuration
@@ -102,6 +147,9 @@ def load_calculator_config() -> SubagentModelConfig:
     temperature = float(os.getenv("CALCULATOR_TEMPERATURE", "0.1"))
     include_usage = os.getenv("CALCULATOR_INCLUDE_USAGE", "true").lower() == "true"
 
+    # Reasoning configuration (Grok supports reasoning_content by default)
+    reasoning_enabled = os.getenv("CALCULATOR_REASONING_ENABLED", "true").lower() == "true"
+
     return SubagentModelConfig(
         provider=provider,
         model_name=model_name,
@@ -109,6 +157,7 @@ def load_calculator_config() -> SubagentModelConfig:
         max_tokens=max_tokens,
         temperature=temperature,
         include_usage=include_usage,
+        reasoning_enabled=reasoning_enabled,
     )
 
 
@@ -351,6 +400,8 @@ def load_orchestrator_config() -> OrchestratorModelConfig:
         ORCHESTRATOR_MAX_TOKENS: Max tokens (default: 4000)
         ORCHESTRATOR_TEMPERATURE: Temperature (default: 0.3)
         ORCHESTRATOR_REASONING_EFFORT: Reasoning level (default: "medium")
+        ORCHESTRATOR_THINKING_BUDGET_TOKENS: Claude Extended Thinking budget (default: 10000)
+        ORCHESTRATOR_REASONING_ENABLED: Enable reasoning capture (default: true)
         ORCHESTRATOR_INCLUDE_USAGE: Track usage (default: true)
         ORCHESTRATOR_ENABLE_STREAMING: Enable streaming (default: false)
 
@@ -398,6 +449,11 @@ def load_orchestrator_config() -> OrchestratorModelConfig:
         os.getenv("ORCHESTRATOR_ENABLE_STREAMING", "false").lower() == "true"
     )
 
+    # Reasoning configuration (Claude Extended Thinking support)
+    reasoning_enabled = os.getenv("ORCHESTRATOR_REASONING_ENABLED", "true").lower() == "true"
+    thinking_budget = os.getenv("ORCHESTRATOR_THINKING_BUDGET_TOKENS")
+    thinking_budget_tokens = int(thinking_budget) if thinking_budget else 10000
+
     return OrchestratorModelConfig(
         provider=provider,
         model_name=model_name,
@@ -407,4 +463,6 @@ def load_orchestrator_config() -> OrchestratorModelConfig:
         include_usage=include_usage,
         reasoning_effort=reasoning_effort,
         enable_streaming=enable_streaming,
+        reasoning_enabled=reasoning_enabled,
+        thinking_budget_tokens=thinking_budget_tokens,
     )
