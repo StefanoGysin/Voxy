@@ -201,7 +201,7 @@ class VoxyOrchestrator:
         tools.append(web_search)
 
         # Prepare ModelSettings with reasoning parameters
-        model_settings = None
+        # NOTE: SDK v0.3.0+ requires ModelSettings to be an instance, not None
         if self.reasoning_params:
             # Pass reasoning params via ModelSettings.extra_args
             model_settings = ModelSettings(
@@ -212,6 +212,10 @@ class VoxyOrchestrator:
                 "ModelSettings configured with reasoning params",
                 params=self.reasoning_params
             )
+        else:
+            # Create empty ModelSettings when reasoning is disabled
+            # SDK v0.3.0+ doesn't accept None
+            model_settings = ModelSettings()
 
         # Create main VOXY agent with LiteLLM model
         # IMPORTANT: Known SDK limitation - thinking blocks may be lost during tool calls

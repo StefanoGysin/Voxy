@@ -1719,14 +1719,14 @@ files = [
 
 [[package]]
 name = "openai"
-version = "1.109.1"
+version = "1.99.9"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "openai-1.109.1-py3-none-any.whl", hash = "sha256:6bcaf57086cf59159b8e27447e4e7dd019db5d29a438072fbd49c290c7e65315"},
-    {file = "openai-1.109.1.tar.gz", hash = "sha256:d173ed8dbca665892a6db099b4a2dfac624f94d20a93f46eb0b56aae940ed869"},
+    {file = "openai-1.99.9-py3-none-any.whl", hash = "sha256:9dbcdb425553bae1ac5d947147bebbd630d91bbfc7788394d4c4f3a35682ab3a"},
+    {file = "openai-1.99.9.tar.gz", hash = "sha256:f2082d155b1ad22e83247c3de3958eb4255b20ccf4a1de2e6681b6957b554e92"},
 ]
 
 [package.dependencies]
@@ -1747,32 +1747,29 @@ voice-helpers = ["numpy (>=2.0.2)", "sounddevice (>=0.5.1)"]
 
 [[package]]
 name = "openai-agents"
-version = "0.3.3"
+version = "0.2.8"
 description = "OpenAI Agents SDK"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "openai_agents-0.3.3-py3-none-any.whl", hash = "sha256:aa2c74e010b923c09f166e63a51fae8c850c62df8581b84bafcbe5bd208d1505"},
-    {file = "openai_agents-0.3.3.tar.gz", hash = "sha256:b016381a6890e1cb6879eb23c53c35f8c2312be1117f1cd4e4b5e2463150839f"},
+    {file = "openai_agents-0.2.8-py3-none-any.whl", hash = "sha256:43e9007b236c5be647a8407476d698aa71f738852e35b07c705c23772163cfbf"},
+    {file = "openai_agents-0.2.8.tar.gz", hash = "sha256:351942d11becb7ac6401d1d3c4fb7a2e8859d721f4b22d1583103a1589548235"},
 ]
 
 [package.dependencies]
 griffe = ">=1.5.6,<2"
 litellm = {version = ">=1.67.4.post1,<2", optional = true, markers = "extra == \"litellm\""}
 mcp = {version = ">=1.11.0,<2", markers = "python_version >= \"3.10\""}
-openai = ">=1.107.1,<2"
+openai = ">=1.99.6,<2"
 pydantic = ">=2.10,<3"
 requests = ">=2.0,<3"
 types-requests = ">=2.0,<3"
 typing-extensions = ">=4.12.2,<5"
 
 [package.extras]
-encrypt = ["cryptography (>=45.0,<46)"]
 litellm = ["litellm (>=1.67.4.post1,<2)"]
 realtime = ["websockets (>=15.0,<16)"]
-redis = ["redis (>=6.4.0)"]
-sqlalchemy = ["asyncpg (>=0.29.0)", "sqlalchemy (>=2.0)"]
 viz = ["graphviz (>=0.17)"]
 voice = ["numpy (>=2.2.0,<3) ; python_version >= \"3.10\"", "websockets (>=15.0,<16)"]
 
@@ -3625,4 +3622,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "0991047c8b0a38f82bc3d8632b1a0878ca92232dabc367144704492a80c0ba74"
+content-hash = "9376610a977b68d3cb70042cf88c7a5c27a11bb6c7d0fabb95816d92f49bbfb1"
