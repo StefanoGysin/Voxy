@@ -204,6 +204,10 @@ class VisionAgent:
             # 7. Execute via OpenAI Agents SDK Runner
             api_start = datetime.now()
 
+            # Clear Universal Reasoning buffer before new run
+            from ...utils.universal_reasoning_capture import clear_universal_reasoning
+            clear_universal_reasoning()
+
             try:
                 logger.bind(event="VISION_AGENT|API_CALL").info(
                     "Vision API call starting",
@@ -224,6 +228,101 @@ class VisionAgent:
                 adaptive_reasoning.update_performance_stats(
                     reasoning_level, api_duration, True
                 )
+
+                # 🌟 Process reasoning items from RunResult (similar to VoxyOrchestrator)
+                items_to_process = []
+                if hasattr(result, 'new_items') and result.new_items:
+                    items_to_process = result.new_items
+                elif hasattr(result, 'items') and result.items:
+                    items_to_process = result.items
+
+                if items_to_process:
+                    from ...utils.universal_reasoning_capture import capture_reasoning
+
+                    for idx, item in enumerate(items_to_process):
+                        # Convert item to dict for processing
+                        item_dict = None
+
+                        # Handle different item formats
+                        if hasattr(item, 'raw_item'):
+                            raw_item = item.raw_item
+                            if isinstance(raw_item, dict):
+                                item_dict = raw_item
+                            elif hasattr(raw_item, '__dict__'):
+                                item_dict = raw_item.__dict__
+                            else:
+                                item_dict = raw_item
+                        elif hasattr(item, '__dict__'):
+                            item_dict = item.__dict__
+                        elif isinstance(item, dict):
+                            item_dict = item
+
+                        # Process reasoning items
+                        if item_dict and isinstance(item_dict, dict):
+                            item_type = item_dict.get('type')
+
+                            if item_type == 'reasoning':
+                                logger.bind(event="VISION_AGENT|SDK_REASONING_FOUND").info(
+                                    "✅ Reasoning item found in Vision Agent RunResult!",
+                                    has_summary=bool(item_dict.get('summary')),
+                                    summary_count=len(item_dict.get('summary', [])) if item_dict.get('summary') else 0
+                                )
+
+                                # Capture via Universal Reasoning System
+                                capture_reasoning(
+                                    response=item_dict,
+                                    provider=self.config.provider,
+                                    model=self.config.get_litellm_model_path()
+                                )
+
+                # 🌟 Retrieve and log captured reasoning with hierarchical formatting
+                from ...utils.universal_reasoning_capture import get_universal_reasoning
+                reasoning_list = get_universal_reasoning()
+
+                # Log summary of captured reasoning
+                if reasoning_list:
+                    logger.bind(event="VISION_AGENT|REASONING_SUMMARY").info(
+                        f"✅ Vision Agent Reasoning: Captured {len(reasoning_list)} block(s)"
+                    )
+
+                    # Log each reasoning block with hierarchical formatting
+                    for idx, reasoning_content in enumerate(reasoning_list):
+                        thinking_text = reasoning_content.thinking_text or reasoning_content.thought_summary or ""
+
+                        # Format reasoning in hierarchical structure
+                        reasoning_log = f"🧠 [VISION REASONING {idx + 1}/{len(reasoning_list)}]\n"
+                        reasoning_log += f"   ├─ Provider: {reasoning_content.provider}\n"
+                        reasoning_log += f"   ├─ Model: {reasoning_content.model}\n"
+                        reasoning_log += f"   ├─ Strategy: {reasoning_content.extraction_strategy}\n"
+
+                        if reasoning_content.reasoning_tokens:
+                            reasoning_log += f"   ├─ Tokens: {reasoning_content.reasoning_tokens}\n"
+
+                        if reasoning_content.reasoning_effort:
+                            reasoning_log += f"   ├─ Effort: {reasoning_content.reasoning_effort}\n"
+
+                        if thinking_text:
+                            # Truncate and format thinking text
+                            preview = thinking_text[:400] if len(thinking_text) > 400 else thinking_text
+                            preview_lines = preview.split('\n')
+
+                            reasoning_log += f"   ├─ Length: {len(thinking_text)} chars\n"
+                            reasoning_log += f"   └─ 💭 Thinking:\n"
+
+                            # Format each line of thinking with proper indentation
+                            for i, line in enumerate(preview_lines[:10]):  # Max 10 lines
+                                if i == len(preview_lines[:10]) - 1 and len(thinking_text) > 400:
+                                    reasoning_log += f"      {line}...\n"
+                                else:
+                                    reasoning_log += f"      {line}\n"
+
+                            if len(preview_lines) > 10 or len(thinking_text) > 400:
+                                reasoning_log += f"      [...{len(thinking_text) - 400} chars omitted]"
+
+                        logger.bind(event="VISION_AGENT|REASONING_CAPTURED").info(reasoning_log)
+
+                    # Clear buffer after logging
+                    clear_universal_reasoning()
 
                 # Extract content
                 content = result.final_output

@@ -67,11 +67,22 @@ class CalculatorAgent:
         self.config = config
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
+        # Log initialization with reasoning config
+        reasoning_status = "enabled" if config.reasoning_enabled else "disabled"
+        reasoning_info = ""
+        if config.reasoning_enabled:
+            if config.thinking_budget_tokens:
+                reasoning_info = f", thinking={config.thinking_budget_tokens} tokens"
+            elif config.reasoning_effort:
+                reasoning_info = f", effort={config.reasoning_effort}"
+
         logger.bind(event="STARTUP|SUBAGENT_INIT").info(
             f"\n"
             f"   └─ ✓ Calculator\n"
             f"      ├─ Model: {config.get_litellm_model_path()}\n"
+            f"      ├─ Provider: {config.provider}\n"
             f"      ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"
+            f"      ├─ Reasoning: {reasoning_status}{reasoning_info}\n"
             f"      └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )
 

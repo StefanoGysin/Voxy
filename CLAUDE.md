@@ -26,22 +26,22 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 ├── Architecture: Factory pattern (models_config.py + llm_factory.py)
 ├── Flexibility: 400+ modelos disponíveis (OpenRouter, OpenAI, Anthropic, Google)
 └── 5 Subagentes SDK (OpenAI Agents SDK + LiteLLM - 400+ modelos)
-    ├── Translator, Corrector, Weather, Calculator (LiteLLM configuráveis)
-    └── Vision Agent (OpenAI Agents SDK + LiteLLM Multi-Provider)
-        ├── Dual-Path: Bypass direto + Decisão VOXY
-        ├── Cache: L1 memory + L2 Redis
-        ├── Provider: openrouter | openai | anthropic
-        └── Features: Adaptive reasoning + Cost tracking
+  ├── Translator, Corrector, Weather, Calculator (LiteLLM configuráveis)
+  └── Vision Agent (OpenAI Agents SDK + LiteLLM Multi-Provider)
+      ├── Dual-Path: Bypass direto + Decisão VOXY
+      ├── Cache: L1 memory + L2 Redis
+      ├── Provider: openrouter | openai | anthropic
+      └── Features: Adaptive reasoning + Cost tracking
 ├── Image Management System
 │   ├── Upload: Drag & drop + validation + progress tracking
 │   ├── Storage: Supabase Storage + organized paths
 │   ├── UI: 5 React components + responsive grid
 │   └── Integration: VOXY Web OS icon + JWT auth
 └── Authentication System
-    ├── Remember Me: Auto-login + Credential persistence
-    ├── JWT Tokens: 24h expiration + JTI tracking
-    ├── Redis Blacklisting: Token invalidation system
-    └── Security: Smart logout + Error handling
+  ├── Remember Me: Auto-login + Credential persistence
+  ├── JWT Tokens: 24h expiration + JTI tracking
+  ├── Redis Blacklisting: Token invalidation system
+  └── Security: Smart logout + Error handling
 ```
 
 ### Vision Agent Dual-Path
@@ -81,26 +81,42 @@ voxy/
 │   ├── scripts/                # test_agent.py (CLI testing)
 │   └── pyproject.toml          # Poetry config
 └── frontend/
-    ├── src/components/
-    │   ├── os/                 # VOXY Web OS Components
-    │   │   ├── EnhancedOSDashboard.tsx
-    │   │   ├── WallpaperSystem.tsx (13 presets)
-    │   │   ├── AppIcon.tsx (draggable)
-    │   │   ├── DateTimeWidget.tsx
-    │   │   ├── DragDropProvider.tsx (smart collision)
-    │   │   └── hooks/          # useResponsiveGrid, useProtectedAreas
-    │   ├── images/             # Image Management System (5 components)
-    │   ├── ui/                 # Radix UI components
-    │   ├── auth/               # Enhanced with Remember Me
-    │   └── chat/               # Integrated VOXY Chat
-    ├── lib/
-    │   ├── api/images.ts       # Image Management API client
-    │   └── store/              # os-store, auth-store, session-store
-    └── src/app/
-        ├── page.tsx            # VOXY Web OS main interface
-        ├── chat/page.tsx       # Chat application
-        └── images/page.tsx     # Image Management page
+  ├── src/components/
+  │   ├── os/                 # VOXY Web OS Components
+  │   │   ├── EnhancedOSDashboard.tsx
+  │   │   ├── WallpaperSystem.tsx (13 presets)
+  │   │   ├── AppIcon.tsx (draggable)
+  │   │   ├── DateTimeWidget.tsx
+  │   │   ├── DragDropProvider.tsx (smart collision)
+  │   │   └── hooks/          # useResponsiveGrid, useProtectedAreas
+  │   ├── images/             # Image Management System (5 components)
+  │   ├── ui/                 # Radix UI components
+  │   ├── auth/               # Enhanced with Remember Me
+  │   └── chat/               # Integrated VOXY Chat
+  ├── lib/
+  │   ├── api/images.ts       # Image Management API client
+  │   └── store/              # os-store, auth-store, session-store
+  └── src/app/
+      ├── page.tsx            # VOXY Web OS main interface
+      ├── chat/page.tsx       # Chat application
+      └── images/page.tsx     # Image Management page
 ```
+
+## 📁 Estrutura de Documentação
+
+**IMPORTANTE - Organização de Documentação**:
+
+- **`.safe-zone/`**: Área de desenvolvimento/rascunho (NÃO commitada ao git)
+  - Use livremente para notas técnicas, planos de implementação, findings de auditoria
+  - Conteúdo desta pasta NÃO entra no repositório
+  - Ideal para documentação técnica temporária e trabalho em progresso
+
+- **`docs/`**: Documentação oficial do projeto (commitada ao git)
+  - **REQUER AUTORIZAÇÃO** do usuário antes de criar/modificar arquivos aqui
+  - Contém documentação pública e permanente do projeto
+  - Apenas documentação finalizada e aprovada
+
+**Regra**: Claude pode criar documentação livremente em `.safe-zone/` mas NUNCA em `docs/` sem autorização explícita.
 
 ## 🧪 Testing & Quality
 
@@ -280,30 +296,30 @@ npm run lint
 ```bash
 # Testar tradutor
 poetry run python scripts/test_agent.py translator \
-  --text "Hello world" \
-  --target-language "pt-BR"
+--text "Hello world" \
+--target-language "pt-BR"
 
 # Testar Vision Agent
 poetry run python scripts/test_agent.py vision \
-  --image-url "https://example.com/image.jpg" \
-  --query "O que você vê?"
+--image-url "https://example.com/image.jpg" \
+--query "O que você vê?"
 ```
 
 **Exemplo CLI (VOXY Orchestrator)**:
 ```bash
 # Teste simples
 poetry run python scripts/test_agent.py voxy \
-  --message "Traduza 'Hello world' para português"
+--message "Traduza 'Hello world' para português"
 
 # Com imagem (análise multimodal via Vision Agent)
 poetry run python scripts/test_agent.py voxy \
-  --message "Qual emoji é este?" \
-  --image-url "https://example.com/emoji.png"
+--message "Qual emoji é este?" \
+--image-url "https://example.com/emoji.png"
 
 # Benchmark mode
 poetry run python scripts/test_agent.py voxy \
-  --message "Quanto é 2+2?" \
-  --benchmark --iterations 5
+--message "Quanto é 2+2?" \
+--benchmark --iterations 5
 
 # Modo interativo
 poetry run python scripts/test_agent.py --interactive

@@ -208,9 +208,9 @@ class VoxyOrchestrator:
                 extra_args=self.reasoning_params
             )
 
-            logger.bind(event="VOXY_ORCHESTRATOR|MODEL_SETTINGS").info(
-                "ModelSettings configured with reasoning params",
-                params=self.reasoning_params
+            logger.bind(event="VOXY_ORCHESTRATOR|MODEL_SETTINGS").debug(
+                "ModelSettings configured with reasoning",
+                has_reasoning=True
             )
         else:
             # Create empty ModelSettings when reasoning is disabled
@@ -636,7 +636,8 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # Add reasoning if available for this invocation
             if reasoning_list:
                 for reasoning_item in reasoning_list:
-                    reasoning_text = reasoning_item.get('reasoning', '')
+                    # ReasoningContent is a dataclass, not a dict - access attributes directly
+                    reasoning_text = reasoning_item.thinking_text or reasoning_item.thought_summary or ''
                     if reasoning_text:
                         # Truncate reasoning to 150 chars for hierarchical log
                         reasoning_preview = reasoning_text[:150]
@@ -832,11 +833,6 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             else:
                 logger.bind(event="VOXY_ORCHESTRATOR|TEXT_ONLY").debug("No image URL provided", message=message[:100])
 
-            # 🧠 Enable reasoning capture from SDK logs (backward compatibility)
-            from voxy_agents.utils.reasoning_capture import enable_reasoning_capture, clear_reasoning
-            clear_reasoning()  # Clear any previous reasoning
-            enable_reasoning_capture()
-
             # 🌟 Clear universal reasoning capture buffer
             from voxy_agents.utils.universal_reasoning_capture import clear_reasoning as clear_universal_reasoning
             clear_universal_reasoning()
@@ -849,6 +845,57 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                 processed_message,
                 session=session,  # ✅ Session support restored in v0.2.8!
             )
+
+            # 🌟 Process reasoning items from RunResult via Universal Reasoning System
+            # The Universal System's SDKReasoningExtractor handles SDK items automatically
+            items_to_process = []
+            if hasattr(result, 'new_items') and result.new_items:
+                items_to_process = result.new_items
+            elif hasattr(result, 'items') and result.items:
+                items_to_process = result.items
+
+            if items_to_process:
+                from voxy_agents.utils.universal_reasoning_capture import capture_reasoning
+
+                logger.bind(event="VOXY_ORCHESTRATOR|PROCESSING_ITEMS").debug(
+                    f"Processing {len(items_to_process)} items from RunResult"
+                )
+
+                for idx, item in enumerate(items_to_process):
+                    # Convert item to dict for Universal Reasoning System
+                    item_dict = None
+
+                    # Handle different item formats (SDK returns various structures)
+                    if hasattr(item, 'raw_item'):
+                        raw_item = item.raw_item
+                        # raw_item pode ser dict ou objeto - converter para dict
+                        if isinstance(raw_item, dict):
+                            item_dict = raw_item
+                        elif hasattr(raw_item, '__dict__'):
+                            item_dict = raw_item.__dict__
+                        else:
+                            item_dict = raw_item
+                    elif hasattr(item, '__dict__'):
+                        item_dict = item.__dict__
+                    elif isinstance(item, dict):
+                        item_dict = item
+
+                    # Process all items through Universal Reasoning System
+                    # (SDKReasoningExtractor will filter for type=='reasoning')
+                    if item_dict:
+                        item_type = item_dict.get('type') if isinstance(item_dict, dict) else None
+
+                        logger.bind(event="VOXY_ORCHESTRATOR|ITEM_PROCESSING").debug(
+                            f"Item {idx} type: {item_type}"
+                        )
+
+                        # Capture via Universal Reasoning System
+                        # System will auto-detect if it's a reasoning item and extract accordingly
+                        capture_reasoning(
+                            response=item_dict,
+                            provider=self.config.provider,
+                            model=self.config.get_litellm_model_path()
+                        )
 
             # Extract response - SDK now automatically manages session state
             response_text = (
@@ -873,63 +920,69 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # Extract tools_used list for backward compatibility
             tools_used = [inv.tool_name for inv in invocations]
 
-            # 🧠 Capture reasoning from SDK logs (legacy system - backward compatibility)
-            from voxy_agents.utils.reasoning_capture import get_captured_reasoning, clear_reasoning
-            reasoning_list_legacy = get_captured_reasoning()
-
-            # 🌟 Capture reasoning from Universal System (new system)
+            # 🌟 Capture reasoning from Universal System
             from voxy_agents.utils.universal_reasoning_capture import get_captured_reasoning as get_universal_reasoning
-            reasoning_list_universal = get_universal_reasoning()
+            reasoning_list = get_universal_reasoning()
 
-            # Merge both reasoning sources (prioritize universal if available)
-            reasoning_list = reasoning_list_universal if reasoning_list_universal else reasoning_list_legacy
+            # Determine context (VOXY or Subagent) for reasoning attribution
+            reasoning_context = "VOXY"
+            if invocations:
+                # If subagents were invoked, reasoning may come from them
+                subagent_names = [TOOL_TO_AGENT_MAP.get(inv.tool_name, inv.tool_name) for inv in invocations]
+                if len(subagent_names) == 1:
+                    reasoning_context = subagent_names[0].upper()
+                elif len(subagent_names) > 1:
+                    reasoning_context = f"VOXY + {', '.join(subagent_names)}"
 
             # Log summary of captured reasoning
-            if reasoning_list_universal:
+            if reasoning_list:
                 logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").info(
-                    f"✅ Universal Reasoning: Captured {len(reasoning_list_universal)} block(s)",
-                    count=len(reasoning_list_universal),
-                    source="universal_system"
+                    f"✅ Universal Reasoning: Captured {len(reasoning_list)} block(s) [Context: {reasoning_context}]"
                 )
-                # Log each reasoning block (universal format)
-                for idx, reasoning_content in enumerate(reasoning_list_universal):
-                    thinking_text = reasoning_content.thinking_text or reasoning_content.thought_summary or ""
-                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(
-                        f"🧠 Reasoning {idx + 1}/{len(reasoning_list_universal)}",
-                        provider=reasoning_content.provider,
-                        model=reasoning_content.model,
-                        strategy=reasoning_content.extraction_strategy,
-                        thinking_preview=thinking_text[:200] if len(thinking_text) > 200 else thinking_text,
-                        thinking_length=len(thinking_text) if thinking_text else 0,
-                        reasoning_tokens=reasoning_content.reasoning_tokens,
-                        thinking_blocks_count=len(reasoning_content.thinking_blocks) if reasoning_content.thinking_blocks else 0,
-                        has_signature=bool(reasoning_content.signature)
-                    )
 
-            elif reasoning_list_legacy:
-                logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").info(
-                    f"✅ Legacy Reasoning: Captured {len(reasoning_list_legacy)} block(s)",
-                    count=len(reasoning_list_legacy),
-                    source="log_parsing"
-                )
-                # Log each reasoning block (legacy format)
-                for idx, r_item in enumerate(reasoning_list_legacy):
-                    reasoning_text = r_item.get('reasoning', '')
-                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(
-                        f"🧠 Reasoning {idx + 1}/{len(reasoning_list_legacy)} (legacy)",
-                        reasoning_preview=reasoning_text[:200] if len(reasoning_text) > 200 else reasoning_text,
-                        reasoning_length=len(reasoning_text),
-                        source=r_item.get('source', 'log_parsing')
-                    )
+                # Log each reasoning block with hierarchical formatting
+                for idx, reasoning_content in enumerate(reasoning_list):
+                    thinking_text = reasoning_content.thinking_text or reasoning_content.thought_summary or ""
+
+                    # Format reasoning in hierarchical structure
+                    reasoning_log = f"🧠 [REASONING {idx + 1}/{len(reasoning_list)}]\n"
+                    reasoning_log += f"   ├─ Context: {reasoning_context}\n"
+                    reasoning_log += f"   ├─ Provider: {reasoning_content.provider}\n"
+                    reasoning_log += f"   ├─ Model: {reasoning_content.model}\n"
+                    reasoning_log += f"   ├─ Strategy: {reasoning_content.extraction_strategy}\n"
+
+                    if reasoning_content.reasoning_tokens:
+                        reasoning_log += f"   ├─ Tokens: {reasoning_content.reasoning_tokens}\n"
+
+                    if reasoning_content.reasoning_effort:
+                        reasoning_log += f"   ├─ Effort: {reasoning_content.reasoning_effort}\n"
+
+                    if thinking_text:
+                        # Truncate and format thinking text
+                        preview = thinking_text[:400] if len(thinking_text) > 400 else thinking_text
+                        preview_lines = preview.split('\n')
+
+                        reasoning_log += f"   ├─ Length: {len(thinking_text)} chars\n"
+                        reasoning_log += f"   └─ 💭 Thinking:\n"
+
+                        # Format each line of thinking with proper indentation
+                        for i, line in enumerate(preview_lines[:10]):  # Max 10 lines
+                            if i == len(preview_lines[:10]) - 1 and len(thinking_text) > 400:
+                                reasoning_log += f"      {line}...\n"
+                            else:
+                                reasoning_log += f"      {line}\n"
+
+                        if len(preview_lines) > 10 or len(thinking_text) > 400:
+                            reasoning_log += f"      [...{len(thinking_text) - 400} chars omitted]"
+
+                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(reasoning_log)
             else:
                 logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").debug(
                     "No reasoning content captured (model may not support reasoning or reasoning disabled)"
                 )
 
-            # Clear buffers for next call
-            if reasoning_list_legacy:
-                clear_reasoning()
-            if reasoning_list_universal:
+            # Clear buffer for next call
+            if reasoning_list:
                 clear_universal_reasoning()
 
             # Determine agent_type based on tools used

@@ -45,9 +45,52 @@ class ReasoningConfig:
     # Fallback settings
     enable_log_parsing: bool = True  # Fallback para providers sem API de reasoning
 
+    def to_openrouter_params(self, provider: str, model: str) -> Dict[str, Any]:
+        """
+        Converte config para formato OpenRouter unificado.
+
+        OpenRouter usa parâmetro 'reasoning' unificado que funciona para TODOS os providers.
+        Diferente de to_litellm_params() que usa formato provider-specific.
+
+        Args:
+            provider: Nome do provider (sempre 'openrouter' quando chamado)
+            model: Nome do modelo (ex: anthropic/claude-sonnet-4.5)
+
+        Returns:
+            Dict com reasoning no formato OpenRouter unificado
+        """
+        if not self.enabled:
+            return {}
+
+        params: Dict[str, Any] = {}
+        reasoning_config = {"enabled": True}
+
+        # Prioridade 1: max_tokens (mais específico)
+        if self.thinking_budget_tokens:
+            reasoning_config["max_tokens"] = self.thinking_budget_tokens
+        elif self.gemini_thinking_budget:
+            reasoning_config["max_tokens"] = self.gemini_thinking_budget
+
+        # Prioridade 2: effort (se não tem max_tokens)
+        if self.reasoning_effort and "max_tokens" not in reasoning_config:
+            reasoning_config["effort"] = self.reasoning_effort  # high/medium/low
+
+        params["reasoning"] = reasoning_config
+
+        logger.bind(event="REASONING_CONFIG|OPENROUTER").debug(
+            "OpenRouter unified reasoning enabled",
+            config=reasoning_config,
+            model=model
+        )
+
+        return params
+
     def to_litellm_params(self, provider: str, model: str) -> Dict[str, Any]:
         """
         Converte config para parâmetros LiteLLM conforme o provider.
+
+        IMPORTANTE: Use to_openrouter_params() quando provider for 'openrouter'.
+        Este método é para Anthropic/OpenAI/Google DIRETO.
 
         Args:
             provider: Nome do provider (anthropic, google, openai, etc.)
@@ -59,9 +102,13 @@ class ReasoningConfig:
         if not self.enabled:
             return {}
 
+        # NOVO: Detectar OpenRouter e usar formato unificado
+        if provider == "openrouter" or model.startswith("openrouter/"):
+            return self.to_openrouter_params(provider, model)
+
         params: Dict[str, Any] = {}
 
-        # Claude Extended Thinking
+        # Claude Extended Thinking (ANTHROPIC DIRETO)
         if provider in ["anthropic", "claude"] or "claude" in model.lower():
             if self.thinking_budget_tokens:
                 params["thinking"] = {
@@ -69,29 +116,17 @@ class ReasoningConfig:
                     "budget_tokens": self.thinking_budget_tokens
                 }
 
-                logger.bind(event="REASONING_CONFIG|CLAUDE_THINKING").debug(
-                    f"Enabled Claude Extended Thinking with budget {self.thinking_budget_tokens} tokens"
-                )
-
-        # Gemini Thinking Config
+        # Gemini Thinking Config (GOOGLE DIRETO)
         elif provider in ["google", "gemini"] or "gemini" in model.lower():
             if self.gemini_thinking_budget is not None:
                 params["thinking_config"] = {
                     "thinking_budget": self.gemini_thinking_budget
                 }
 
-                logger.bind(event="REASONING_CONFIG|GEMINI_THINKING").debug(
-                    f"Enabled Gemini Thinking Config with budget {self.gemini_thinking_budget}"
-                )
-
-        # OpenAI Reasoning Effort
+        # OpenAI Reasoning Effort (OPENAI DIRETO)
         elif provider == "openai" or model.startswith("gpt-") or model.startswith("o1-"):
             if self.reasoning_effort:
                 params["reasoning_effort"] = self.reasoning_effort
-
-                logger.bind(event="REASONING_CONFIG|OPENAI_EFFORT").debug(
-                    f"Enabled OpenAI Reasoning with effort '{self.reasoning_effort}'"
-                )
 
         return params
 

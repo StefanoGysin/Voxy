@@ -462,6 +462,158 @@ class OpenAIStatsExtractor(ReasoningExtractor):
 
 
 # ============================================================================
+# SDK Reasoning Extractor (OpenRouter / OpenAI Agents SDK)
+# ============================================================================
+
+class SDKReasoningExtractor(ReasoningExtractor):
+    """
+    Extrai reasoning de RunResult items do OpenAI Agents SDK.
+
+    Suporta formato OpenRouter/SDK:
+    {
+        'type': 'reasoning',
+        'summary': [{'text': '...', 'type': 'summary_text'}]
+    }
+
+    Este é um fallback universal que processa items retornados pelo SDK.
+    """
+
+    def __init__(self):
+        super().__init__(provider="sdk", model="universal")
+
+    def supports_provider(self, provider: str, model: str) -> bool:
+        """
+        Suporta qualquer provider como fallback universal.
+
+        Este extractor é executado por último e processa items do SDK
+        independente do provider original.
+        """
+        return True
+
+    def extract(self, response: Any, metadata: Optional[Dict[str, Any]] = None) -> Optional[ReasoningContent]:
+        """
+        Extrai reasoning de items do OpenAI Agents SDK RunResult.
+
+        Formato esperado (item do SDK):
+        {
+            'id': '__fake_id__',
+            'type': 'reasoning',
+            'summary': [
+                {'text': 'Texto do reasoning...', 'type': 'summary_text'}
+            ]
+        }
+        """
+        start_time = datetime.now()
+
+        try:
+            self.logger.bind(event="SDK_REASONING|EXTRACT_START").debug(
+                "Starting SDK reasoning extraction",
+                response_type=type(response).__name__,
+                is_dict=isinstance(response, dict)
+            )
+
+            # Processar dict format (item do SDK)
+            if not isinstance(response, dict):
+                self.logger.bind(event="SDK_REASONING|NOT_DICT").debug(
+                    "Response is not dict, skipping"
+                )
+                return None
+
+            item_type = response.get('type')
+            self.logger.bind(event="SDK_REASONING|TYPE_CHECK").debug(
+                f"Item type: {item_type}"
+            )
+
+            # Verificar se é um reasoning item
+            if item_type != 'reasoning':
+                self.logger.bind(event="SDK_REASONING|NOT_REASONING").debug(
+                    f"Item type '{item_type}' is not reasoning, skipping"
+                )
+                return None
+
+            # Extrair summary text
+            summary = response.get('summary', [])
+            self.logger.bind(event="SDK_REASONING|SUMMARY_CHECK").debug(
+                "Checking summary",
+                has_summary=bool(summary),
+                is_list=isinstance(summary, list),
+                summary_length=len(summary) if isinstance(summary, list) else 0
+            )
+
+            if not summary or not isinstance(summary, list):
+                self.logger.bind(event="SDK_REASONING|NO_SUMMARY").warning(
+                    "No summary found or summary is not a list"
+                )
+                return None
+
+            # Extrair texto do primeiro summary item
+            thinking_text = None
+            for idx, summary_item in enumerate(summary):
+                # Suportar tanto dict quanto objetos SDK (Summary)
+                text = None
+                item_type = None
+
+                if isinstance(summary_item, dict):
+                    # Dict format
+                    text = summary_item.get('text')
+                    item_type = summary_item.get('type')
+                elif hasattr(summary_item, 'text') and hasattr(summary_item, 'type'):
+                    # Object format (OpenAI SDK Summary)
+                    text = summary_item.text
+                    item_type = summary_item.type
+
+                self.logger.bind(event="SDK_REASONING|TEXT_CHECK").debug(
+                    f"Summary item {idx}",
+                    has_text=bool(text),
+                    text_length=len(text) if text else 0,
+                    item_type=item_type,
+                    item_class=type(summary_item).__name__
+                )
+
+                if text and item_type == 'summary_text':
+                    thinking_text = text
+                    self.logger.bind(event="SDK_REASONING|TEXT_FOUND").info(
+                        f"✅ Found thinking text in summary item {idx}",
+                        text_length=len(text)
+                    )
+                    break
+
+            if not thinking_text:
+                self.logger.bind(event="SDK_REASONING|NO_TEXT").warning(
+                    "No thinking text found in summary items"
+                )
+                return None
+
+            # Extrair provider/model do metadata
+            provider = metadata.get('provider', 'openrouter') if metadata else 'openrouter'
+            model = metadata.get('model', 'unknown') if metadata else 'unknown'
+
+            extraction_time = (datetime.now() - start_time).total_seconds() * 1000
+
+            self.logger.bind(event="SDK_REASONING|EXTRACTED").info(
+                f"Reasoning extracted from SDK item",
+                provider=provider,
+                model=model,
+                text_length=len(thinking_text)
+            )
+
+            return ReasoningContent(
+                provider=provider,
+                model=model,
+                timestamp=datetime.now(),
+                extraction_strategy="sdk_items",
+                thinking_text=thinking_text,
+                extraction_time_ms=extraction_time
+            )
+
+        except Exception as e:
+            self.logger.bind(event="SDK_REASONING|EXTRACT_ERROR").error(
+                f"Failed to extract SDK reasoning: {e}"
+            )
+            return None
+
+
+# ============================================================================
 # Universal Reasoning Capture (Orchestrator)
 # ============================================================================
 
@@ -476,11 +628,13 @@ class UniversalReasoningCapture:
         self.logger = logger.bind(component="UniversalReasoningCapture")
 
         # Registrar extractors
+        # IMPORTANTE: SDKReasoningExtractor é fallback universal (último)
         self.extractors: List[ReasoningExtractor] = [
             ClaudeThinkingExtractor(),
             GeminiThinkingExtractor(),
             ResponseFieldExtractor(),
             OpenAIStatsExtractor(),
+            SDKReasoningExtractor(),  # Fallback universal para SDK items
         ]
 
         # Buffer de reasoning capturado (thread-safe)

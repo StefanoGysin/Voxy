@@ -28,6 +28,7 @@ class SubagentModelConfig:
         max_tokens: Maximum tokens in response
         temperature: Sampling temperature (0.0 = deterministic, 1.0 = creative)
         include_usage: Whether to track token usage
+        agent_name: Agent identifier for reasoning config lookup (orchestrator, vision, calculator, etc.)
         reasoning_enabled: Whether to enable reasoning/thinking capture
         thinking_budget_tokens: Token budget for Claude Extended Thinking
         gemini_thinking_budget: Token budget for Gemini Thinking Config
@@ -40,6 +41,7 @@ class SubagentModelConfig:
     max_tokens: int = 2000
     temperature: float = 0.1
     include_usage: bool = True
+    agent_name: str = "generic"  # Used for reasoning config lookup
 
     # Reasoning/Thinking configuration (optional)
     reasoning_enabled: bool = True
@@ -157,6 +159,7 @@ def load_calculator_config() -> SubagentModelConfig:
         max_tokens=max_tokens,
         temperature=temperature,
         include_usage=include_usage,
+        agent_name="calculator",
         reasoning_enabled=reasoning_enabled,
     )
 
@@ -194,6 +197,7 @@ def load_corrector_config() -> SubagentModelConfig:
         max_tokens=max_tokens,
         temperature=temperature,
         include_usage=include_usage,
+        agent_name="corrector",
     )
 
 
@@ -230,6 +234,7 @@ def load_weather_config() -> SubagentModelConfig:
         max_tokens=max_tokens,
         temperature=temperature,
         include_usage=include_usage,
+        agent_name="weather",
     )
 
 
@@ -287,6 +292,7 @@ def load_translator_config() -> SubagentModelConfig:
         max_tokens=max_tokens,
         temperature=temperature,
         include_usage=include_usage,
+        agent_name="translator",
     )
 
 
@@ -367,6 +373,7 @@ def load_vision_config() -> VisionModelConfig:
         max_tokens=max_tokens,
         temperature=temperature,
         include_usage=include_usage,
+        agent_name="vision",
         reasoning_effort=reasoning_effort,
         cache_ttl_base=cache_ttl_base,
         enable_postprocessing=enable_postprocessing,
@@ -461,6 +468,7 @@ def load_orchestrator_config() -> OrchestratorModelConfig:
         max_tokens=max_tokens,
         temperature=temperature,
         include_usage=include_usage,
+        agent_name="orchestrator",
         reasoning_effort=reasoning_effort,
         enable_streaming=enable_streaming,
         reasoning_enabled=reasoning_enabled,

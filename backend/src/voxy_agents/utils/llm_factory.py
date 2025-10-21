@@ -179,14 +179,18 @@ def get_reasoning_params(config: SubagentModelConfig) -> Dict[str, Any]:
     These parameters should be passed to the Agent when running inference,
     not when creating the model instance.
 
+    IMPORTANT: Detects OpenRouter provider and uses unified 'reasoning' format.
+    For direct providers (anthropic, google, openai), uses provider-specific format.
+
     Args:
         config: SubagentModelConfig with reasoning configuration
 
     Returns:
         dict: Reasoning parameters for LiteLLM API call
-            - For Claude: {"thinking": {"type": "enabled", "budget_tokens": 10000}}
-            - For Gemini: {"thinking_config": {"thinking_budget": 1024}}
-            - For OpenAI: {"reasoning_effort": "medium"}
+            - For OpenRouter: {"reasoning": {"enabled": true, "max_tokens": 10000, "effort": "high"}}
+            - For Claude (direct): {"thinking": {"type": "enabled", "budget_tokens": 10000}}
+            - For Gemini (direct): {"thinking_config": {"thinking_budget": 1024}}
+            - For OpenAI (direct): {"reasoning_effort": "medium"}
             - For others: {} (empty dict)
 
     Example:
@@ -199,16 +203,37 @@ def get_reasoning_params(config: SubagentModelConfig) -> Dict[str, Any]:
         logger.debug("Reasoning disabled for this agent")
         return {}
 
-    reasoning_params = config.get_reasoning_params()
+    # Detect OpenRouter and use unified format
+    model_path = config.get_litellm_model_path()
+    if config.provider == "openrouter" or model_path.startswith("openrouter/"):
+        # Import reasoning_config to use to_openrouter_params()
+        from ..config.reasoning_config import get_reasoning_config
+
+        # Extract agent name from config (e.g., "orchestrator", "vision", "calculator")
+        # Determine agent name from model usage pattern
+        if hasattr(config, 'agent_name'):
+            agent_name = config.agent_name
+        else:
+            # Fallback: try to infer from config context (will use generic loader)
+            agent_name = "generic"
+
+        reasoning_config = get_reasoning_config(agent_name)
+        reasoning_params = reasoning_config.to_openrouter_params(
+            provider=config.provider,
+            model=model_path
+        )
+    else:
+        # Use provider-specific format for direct providers
+        reasoning_params = config.get_reasoning_params()
 
     if reasoning_params:
         logger.debug(
-            f"Reasoning parameters extracted for {config.provider}/{config.model_name}: "
+            f"Reasoning parameters extracted for {model_path}: "
             f"{list(reasoning_params.keys())}"
         )
     else:
         logger.debug(
-            f"No reasoning parameters configured for {config.provider}/{config.model_name}"
+            f"No reasoning parameters configured for {model_path}"
         )
 
     return reasoning_params
