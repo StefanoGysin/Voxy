@@ -4,9 +4,8 @@ Conformidade: LGPD, GDPR
 
 Migração Loguru - Sprint 2: Implementação completa
 """
-import re
-from typing import Dict
 
+import re
 
 # Padrões de dados sensíveis
 SENSITIVE_PATTERNS = {
@@ -15,11 +14,13 @@ SENSITIVE_PATTERNS = {
     "api_key_openrouter": re.compile(r"sk-or-v1-[a-zA-Z0-9]{10,}"),
     "api_key_openai": re.compile(r"sk-[a-zA-Z0-9]{10,}"),
     "bearer_token": re.compile(r"Bearer\s+[A-Za-z0-9_-]+", re.IGNORECASE),
-    "authorization": re.compile(r"Authorization:\s*Bearer\s+[A-Za-z0-9_-]+", re.IGNORECASE),
+    "authorization": re.compile(
+        r"Authorization:\s*Bearer\s+[A-Za-z0-9_-]+", re.IGNORECASE
+    ),
 }
 
 
-def mask_sensitive_data(record: Dict) -> bool:
+def mask_sensitive_data(record: dict) -> bool:
     """
     Filtra dados sensíveis de mensagens de log.
 
@@ -48,7 +49,14 @@ def mask_sensitive_data(record: Dict) -> bool:
 
     # Mascarar campos 'extra' sensíveis
     if "extra" in record:
-        sensitive_keys = ["password", "token", "api_key", "secret", "authorization", "bearer"]
+        sensitive_keys = [
+            "password",
+            "token",
+            "api_key",
+            "secret",
+            "authorization",
+            "bearer",
+        ]
         for key in sensitive_keys:
             if key in record["extra"]:
                 record["extra"][key] = "***MASKED***"

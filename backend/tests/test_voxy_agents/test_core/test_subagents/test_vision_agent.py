@@ -78,7 +78,11 @@ class TestVisionAgent:
 
     @pytest.fixture
     def agent(
-        self, mock_vision_config, mock_runner, mock_vision_cache, mock_adaptive_reasoning
+        self,
+        mock_vision_config,
+        mock_runner,
+        mock_vision_cache,
+        mock_adaptive_reasoning,
     ):
         """Create Vision Agent with mocked dependencies."""
         with patch("src.voxy_agents.core.subagents.vision_agent.LitellmModel"):

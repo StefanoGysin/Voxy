@@ -6,7 +6,7 @@ through LiteLLM (OpenRouter, OpenAI, Anthropic, etc.).
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 
 from agents.extensions.models.litellm_model import LitellmModel
 
@@ -172,7 +172,7 @@ def get_model_info(model_path: str) -> dict:
         }
 
 
-def get_reasoning_params(config: SubagentModelConfig) -> Dict[str, Any]:
+def get_reasoning_params(config: SubagentModelConfig) -> dict[str, Any]:
     """
     Extract reasoning/thinking parameters from model configuration.
 
@@ -211,7 +211,7 @@ def get_reasoning_params(config: SubagentModelConfig) -> Dict[str, Any]:
 
         # Extract agent name from config (e.g., "orchestrator", "vision", "calculator")
         # Determine agent name from model usage pattern
-        if hasattr(config, 'agent_name'):
+        if hasattr(config, "agent_name"):
             agent_name = config.agent_name
         else:
             # Fallback: try to infer from config context (will use generic loader)
@@ -219,8 +219,7 @@ def get_reasoning_params(config: SubagentModelConfig) -> Dict[str, Any]:
 
         reasoning_config = get_reasoning_config(agent_name)
         reasoning_params = reasoning_config.to_openrouter_params(
-            provider=config.provider,
-            model=model_path
+            provider=config.provider, model=model_path
         )
     else:
         # Use provider-specific format for direct providers
@@ -232,16 +231,14 @@ def get_reasoning_params(config: SubagentModelConfig) -> Dict[str, Any]:
             f"{list(reasoning_params.keys())}"
         )
     else:
-        logger.debug(
-            f"No reasoning parameters configured for {model_path}"
-        )
+        logger.debug(f"No reasoning parameters configured for {model_path}")
 
     return reasoning_params
 
 
 def create_model_with_reasoning(
     config: SubagentModelConfig,
-) -> tuple[LitellmModel, Dict[str, Any]]:
+) -> tuple[LitellmModel, dict[str, Any]]:
     """
     Create LiteLLM model and extract reasoning parameters in one call.
 

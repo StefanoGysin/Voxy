@@ -16,15 +16,16 @@ Date: 2025-10-14
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
 from datetime import datetime
-from loguru import logger
+from typing import Any, Optional
 
+from loguru import logger
 
 # ============================================================================
 # Data Models
 # ============================================================================
+
 
 @dataclass
 class ReasoningContent:
@@ -38,7 +39,9 @@ class ReasoningContent:
 
     # Content (pelo menos um deve estar presente)
     thinking_text: Optional[str] = None  # Texto do reasoning/thinking
-    thinking_blocks: Optional[List[Dict[str, Any]]] = None  # Blocos estruturados (Claude)
+    thinking_blocks: Optional[list[dict[str, Any]]] = (
+        None  # Blocos estruturados (Claude)
+    )
     thought_summary: Optional[str] = None  # Resumo (Gemini)
 
     # Usage Statistics
@@ -53,7 +56,7 @@ class ReasoningContent:
     # Performance
     extraction_time_ms: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Converte para dicionário para logging/storage."""
         return {
             "provider": self.provider,
@@ -68,22 +71,23 @@ class ReasoningContent:
             "signature": self.signature,
             "redacted": self.redacted,
             "cache_hit": self.cache_hit,
-            "extraction_time_ms": self.extraction_time_ms
+            "extraction_time_ms": self.extraction_time_ms,
         }
 
     def has_content(self) -> bool:
         """Verifica se há conteúdo de reasoning capturado."""
         return bool(
-            self.thinking_text or
-            self.thinking_blocks or
-            self.thought_summary or
-            self.reasoning_tokens
+            self.thinking_text
+            or self.thinking_blocks
+            or self.thought_summary
+            or self.reasoning_tokens
         )
 
 
 # ============================================================================
 # Abstract Base Class
 # ============================================================================
+
 
 class ReasoningExtractor(ABC):
     """Interface abstrata para extratores de reasoning específicos por provedor."""
@@ -94,7 +98,9 @@ class ReasoningExtractor(ABC):
         self.logger = logger.bind(component="ReasoningExtractor", provider=provider)
 
     @abstractmethod
-    def extract(self, response: Any, metadata: Optional[Dict[str, Any]] = None) -> Optional[ReasoningContent]:
+    def extract(
+        self, response: Any, metadata: Optional[dict[str, Any]] = None
+    ) -> Optional[ReasoningContent]:
         """
         Extrai reasoning do response do LLM.
 
@@ -117,6 +123,7 @@ class ReasoningExtractor(ABC):
 # Claude Extended Thinking Extractor
 # ============================================================================
 
+
 class ClaudeThinkingExtractor(ReasoningExtractor):
     """Extrai thinking blocks da API Extended Thinking do Claude."""
 
@@ -127,7 +134,9 @@ class ClaudeThinkingExtractor(ReasoningExtractor):
         """Suporta provedores Anthropic/Claude."""
         return provider in ["anthropic", "claude"] or "claude" in model.lower()
 
-    def extract(self, response: Any, metadata: Optional[Dict[str, Any]] = None) -> Optional[ReasoningContent]:
+    def extract(
+        self, response: Any, metadata: Optional[dict[str, Any]] = None
+    ) -> Optional[ReasoningContent]:
         """
         Extrai thinking blocks do response do Claude.
 
@@ -194,7 +203,7 @@ class ClaudeThinkingExtractor(ReasoningExtractor):
                     thinking_blocks=thinking_blocks,
                     signature=signature,
                     redacted=redacted,
-                    extraction_time_ms=extraction_time
+                    extraction_time_ms=extraction_time,
                 )
 
             return None
@@ -205,7 +214,7 @@ class ClaudeThinkingExtractor(ReasoningExtractor):
             )
             return None
 
-    def _get_content_blocks(self, response: Any) -> List[Dict[str, Any]]:
+    def _get_content_blocks(self, response: Any) -> list[dict[str, Any]]:
         """Extrai content blocks do response (compatível com diferentes formatos)."""
         # LiteLLM response format
         if hasattr(response, "choices") and response.choices:
@@ -231,6 +240,7 @@ class ClaudeThinkingExtractor(ReasoningExtractor):
 # Gemini Thinking Config Extractor
 # ============================================================================
 
+
 class GeminiThinkingExtractor(ReasoningExtractor):
     """Extrai thought summaries da API Thinking Config do Gemini."""
 
@@ -241,7 +251,9 @@ class GeminiThinkingExtractor(ReasoningExtractor):
         """Suporta provedores Google/Gemini."""
         return provider in ["google", "gemini"] or "gemini" in model.lower()
 
-    def extract(self, response: Any, metadata: Optional[Dict[str, Any]] = None) -> Optional[ReasoningContent]:
+    def extract(
+        self, response: Any, metadata: Optional[dict[str, Any]] = None
+    ) -> Optional[ReasoningContent]:
         """
         Extrai thought summary do response do Gemini.
 
@@ -269,7 +281,9 @@ class GeminiThinkingExtractor(ReasoningExtractor):
                 # Verificar se há thought_summary no message
                 if hasattr(message, "thought_summary"):
                     thought_summary = message.thought_summary
-                elif hasattr(message, "metadata") and isinstance(message.metadata, dict):
+                elif hasattr(message, "metadata") and isinstance(
+                    message.metadata, dict
+                ):
                     thought_summary = message.metadata.get("thought_summary")
 
             # Tentar formato dict direto
@@ -294,7 +308,7 @@ class GeminiThinkingExtractor(ReasoningExtractor):
                     timestamp=datetime.now(),
                     extraction_strategy="api",
                     thought_summary=thought_summary,
-                    extraction_time_ms=extraction_time
+                    extraction_time_ms=extraction_time,
                 )
 
             return None
@@ -310,6 +324,7 @@ class GeminiThinkingExtractor(ReasoningExtractor):
 # Response Field Extractor (Grok, DeepSeek)
 # ============================================================================
 
+
 class ResponseFieldExtractor(ReasoningExtractor):
     """Extrai reasoning_content field de modelos que expõem diretamente (Grok, DeepSeek)."""
 
@@ -319,9 +334,13 @@ class ResponseFieldExtractor(ReasoningExtractor):
     def supports_provider(self, provider: str, model: str) -> bool:
         """Suporta Grok, DeepSeek e qualquer modelo com reasoning_content."""
         supported = ["grok", "deepseek", "x-ai"]
-        return any(name in provider.lower() or name in model.lower() for name in supported)
+        return any(
+            name in provider.lower() or name in model.lower() for name in supported
+        )
 
-    def extract(self, response: Any, metadata: Optional[Dict[str, Any]] = None) -> Optional[ReasoningContent]:
+    def extract(
+        self, response: Any, metadata: Optional[dict[str, Any]] = None
+    ) -> Optional[ReasoningContent]:
         """
         Extrai reasoning_content field do response.
 
@@ -359,7 +378,9 @@ class ResponseFieldExtractor(ReasoningExtractor):
                 extraction_time = (datetime.now() - start_time).total_seconds() * 1000
 
                 # Detectar provider do metadata ou model name
-                provider = metadata.get("provider", "generic") if metadata else "generic"
+                provider = (
+                    metadata.get("provider", "generic") if metadata else "generic"
+                )
                 model = metadata.get("model", self.model) if metadata else self.model
 
                 return ReasoningContent(
@@ -368,7 +389,7 @@ class ResponseFieldExtractor(ReasoningExtractor):
                     timestamp=datetime.now(),
                     extraction_strategy="response_field",
                     thinking_text=reasoning_text,
-                    extraction_time_ms=extraction_time
+                    extraction_time_ms=extraction_time,
                 )
 
             return None
@@ -384,6 +405,7 @@ class ResponseFieldExtractor(ReasoningExtractor):
 # OpenAI Stats Extractor
 # ============================================================================
 
+
 class OpenAIStatsExtractor(ReasoningExtractor):
     """Extrai reasoning token statistics do OpenAI (GPT-5, o1)."""
 
@@ -392,9 +414,13 @@ class OpenAIStatsExtractor(ReasoningExtractor):
 
     def supports_provider(self, provider: str, model: str) -> bool:
         """Suporta provedores OpenAI."""
-        return provider == "openai" or model.startswith("gpt-") or model.startswith("o1-")
+        return (
+            provider == "openai" or model.startswith("gpt-") or model.startswith("o1-")
+        )
 
-    def extract(self, response: Any, metadata: Optional[Dict[str, Any]] = None) -> Optional[ReasoningContent]:
+    def extract(
+        self, response: Any, metadata: Optional[dict[str, Any]] = None
+    ) -> Optional[ReasoningContent]:
         """
         Extrai reasoning tokens do response do OpenAI.
 
@@ -449,7 +475,7 @@ class OpenAIStatsExtractor(ReasoningExtractor):
                     extraction_strategy="stats",
                     reasoning_tokens=reasoning_tokens,
                     reasoning_effort=reasoning_effort,
-                    extraction_time_ms=extraction_time
+                    extraction_time_ms=extraction_time,
                 )
 
             return None
@@ -464,6 +490,7 @@ class OpenAIStatsExtractor(ReasoningExtractor):
 # ============================================================================
 # SDK Reasoning Extractor (OpenRouter / OpenAI Agents SDK)
 # ============================================================================
+
 
 class SDKReasoningExtractor(ReasoningExtractor):
     """
@@ -490,7 +517,9 @@ class SDKReasoningExtractor(ReasoningExtractor):
         """
         return True
 
-    def extract(self, response: Any, metadata: Optional[Dict[str, Any]] = None) -> Optional[ReasoningContent]:
+    def extract(
+        self, response: Any, metadata: Optional[dict[str, Any]] = None
+    ) -> Optional[ReasoningContent]:
         """
         Extrai reasoning de items do OpenAI Agents SDK RunResult.
 
@@ -509,7 +538,7 @@ class SDKReasoningExtractor(ReasoningExtractor):
             self.logger.bind(event="SDK_REASONING|EXTRACT_START").debug(
                 "Starting SDK reasoning extraction",
                 response_type=type(response).__name__,
-                is_dict=isinstance(response, dict)
+                is_dict=isinstance(response, dict),
             )
 
             # Processar dict format (item do SDK)
@@ -519,25 +548,25 @@ class SDKReasoningExtractor(ReasoningExtractor):
                 )
                 return None
 
-            item_type = response.get('type')
+            item_type = response.get("type")
             self.logger.bind(event="SDK_REASONING|TYPE_CHECK").debug(
                 f"Item type: {item_type}"
             )
 
             # Verificar se é um reasoning item
-            if item_type != 'reasoning':
+            if item_type != "reasoning":
                 self.logger.bind(event="SDK_REASONING|NOT_REASONING").debug(
                     f"Item type '{item_type}' is not reasoning, skipping"
                 )
                 return None
 
             # Extrair summary text
-            summary = response.get('summary', [])
+            summary = response.get("summary", [])
             self.logger.bind(event="SDK_REASONING|SUMMARY_CHECK").debug(
                 "Checking summary",
                 has_summary=bool(summary),
                 is_list=isinstance(summary, list),
-                summary_length=len(summary) if isinstance(summary, list) else 0
+                summary_length=len(summary) if isinstance(summary, list) else 0,
             )
 
             if not summary or not isinstance(summary, list):
@@ -555,9 +584,9 @@ class SDKReasoningExtractor(ReasoningExtractor):
 
                 if isinstance(summary_item, dict):
                     # Dict format
-                    text = summary_item.get('text')
-                    item_type = summary_item.get('type')
-                elif hasattr(summary_item, 'text') and hasattr(summary_item, 'type'):
+                    text = summary_item.get("text")
+                    item_type = summary_item.get("type")
+                elif hasattr(summary_item, "text") and hasattr(summary_item, "type"):
                     # Object format (OpenAI SDK Summary)
                     text = summary_item.text
                     item_type = summary_item.type
@@ -567,14 +596,14 @@ class SDKReasoningExtractor(ReasoningExtractor):
                     has_text=bool(text),
                     text_length=len(text) if text else 0,
                     item_type=item_type,
-                    item_class=type(summary_item).__name__
+                    item_class=type(summary_item).__name__,
                 )
 
-                if text and item_type == 'summary_text':
+                if text and item_type == "summary_text":
                     thinking_text = text
                     self.logger.bind(event="SDK_REASONING|TEXT_FOUND").info(
                         f"✅ Found thinking text in summary item {idx}",
-                        text_length=len(text)
+                        text_length=len(text),
                     )
                     break
 
@@ -585,16 +614,18 @@ class SDKReasoningExtractor(ReasoningExtractor):
                 return None
 
             # Extrair provider/model do metadata
-            provider = metadata.get('provider', 'openrouter') if metadata else 'openrouter'
-            model = metadata.get('model', 'unknown') if metadata else 'unknown'
+            provider = (
+                metadata.get("provider", "openrouter") if metadata else "openrouter"
+            )
+            model = metadata.get("model", "unknown") if metadata else "unknown"
 
             extraction_time = (datetime.now() - start_time).total_seconds() * 1000
 
             self.logger.bind(event="SDK_REASONING|EXTRACTED").info(
-                f"Reasoning extracted from SDK item",
+                "Reasoning extracted from SDK item",
                 provider=provider,
                 model=model,
-                text_length=len(thinking_text)
+                text_length=len(thinking_text),
             )
 
             return ReasoningContent(
@@ -603,7 +634,7 @@ class SDKReasoningExtractor(ReasoningExtractor):
                 timestamp=datetime.now(),
                 extraction_strategy="sdk_items",
                 thinking_text=thinking_text,
-                extraction_time_ms=extraction_time
+                extraction_time_ms=extraction_time,
             )
 
         except Exception as e:
@@ -617,6 +648,7 @@ class SDKReasoningExtractor(ReasoningExtractor):
 # Universal Reasoning Capture (Orchestrator)
 # ============================================================================
 
+
 class UniversalReasoningCapture:
     """
     Orquestrador universal de captura de reasoning.
@@ -629,7 +661,7 @@ class UniversalReasoningCapture:
 
         # Registrar extractors
         # IMPORTANTE: SDKReasoningExtractor é fallback universal (último)
-        self.extractors: List[ReasoningExtractor] = [
+        self.extractors: list[ReasoningExtractor] = [
             ClaudeThinkingExtractor(),
             GeminiThinkingExtractor(),
             ResponseFieldExtractor(),
@@ -638,7 +670,7 @@ class UniversalReasoningCapture:
         ]
 
         # Buffer de reasoning capturado (thread-safe)
-        self._buffer: List[ReasoningContent] = []
+        self._buffer: list[ReasoningContent] = []
 
         self.logger.bind(event="UNIVERSAL_REASONING|INIT").info(
             f"Universal reasoning capture initialized with {len(self.extractors)} extractors"
@@ -649,7 +681,7 @@ class UniversalReasoningCapture:
         response: Any,
         provider: str,
         model: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[dict[str, Any]] = None,
     ) -> Optional[ReasoningContent]:
         """
         Extrai reasoning do response usando o extractor apropriado.
@@ -688,7 +720,7 @@ class UniversalReasoningCapture:
                         strategy=reasoning.extraction_strategy,
                         has_text=bool(reasoning.thinking_text),
                         has_blocks=bool(reasoning.thinking_blocks),
-                        tokens=reasoning.reasoning_tokens
+                        tokens=reasoning.reasoning_tokens,
                     )
 
                     return reasoning
@@ -699,7 +731,7 @@ class UniversalReasoningCapture:
 
         return None
 
-    def get_captured(self) -> List[ReasoningContent]:
+    def get_captured(self) -> list[ReasoningContent]:
         """Retorna todo reasoning capturado."""
         return self._buffer.copy()
 
@@ -733,17 +765,14 @@ def get_universal_capture() -> UniversalReasoningCapture:
 
 
 def capture_reasoning(
-    response: Any,
-    provider: str,
-    model: str,
-    metadata: Optional[Dict[str, Any]] = None
+    response: Any, provider: str, model: str, metadata: Optional[dict[str, Any]] = None
 ) -> Optional[ReasoningContent]:
     """Convenience function para capturar reasoning."""
     capture = get_universal_capture()
     return capture.extract(response, provider, model, metadata)
 
 
-def get_captured_reasoning() -> List[ReasoningContent]:
+def get_captured_reasoning() -> list[ReasoningContent]:
     """Convenience function para obter todo reasoning capturado."""
     capture = get_universal_capture()
     return capture.get_captured()

@@ -7,9 +7,8 @@ Usa capacidades nativas do modelo para eficiência máxima.
 Migração Loguru - Sprint 5
 """
 
-from loguru import logger
-
 from agents import Agent, ModelSettings
+from loguru import logger
 
 from ...config.models_config import load_corrector_config
 from ...utils.llm_factory import create_litellm_model
@@ -29,6 +28,7 @@ class CorrectorAgent:
     def __init__(self):
         """Initialize the corrector subagent with configurable LiteLLM model."""
         import time
+
         start_time = time.perf_counter()
 
         config = load_corrector_config()

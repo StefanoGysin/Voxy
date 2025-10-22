@@ -3,10 +3,12 @@ Middleware FastAPI para propagação automática de contexto de logging.
 
 Migração Loguru - Sprint 3: Context Propagation
 """
+
 import uuid
+
+from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from loguru import logger
 
 
 class LoggingContextMiddleware(BaseHTTPMiddleware):
@@ -32,25 +34,22 @@ class LoggingContextMiddleware(BaseHTTPMiddleware):
             trace_id=trace_id,
             user_id=user_id,
             path=request.url.path,
-            method=request.method
+            method=request.method,
         ):
-            logger.bind(event="HTTP_REQUEST_START").info(
-                "Request iniciado"
-            )
+            logger.bind(event="HTTP_REQUEST_START").info("Request iniciado")
 
             try:
                 response = await call_next(request)
 
                 logger.bind(event="HTTP_REQUEST_END").info(
-                    "Request concluído",
-                    status_code=response.status_code
+                    "Request concluído", status_code=response.status_code
                 )
 
                 # Adicionar trace_id ao response header para rastreamento
                 response.headers["X-Trace-ID"] = trace_id
                 return response
 
-            except Exception as e:
+            except Exception:
                 logger.bind(event="HTTP_REQUEST_ERROR").exception(
                     "Request falhou com exceção"
                 )

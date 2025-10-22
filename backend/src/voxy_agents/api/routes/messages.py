@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ...core.database.supabase_integration import SupabaseIntegration
 from ..middleware.auth import User, get_current_active_user
@@ -414,10 +414,14 @@ async def delete_message(
 
     try:
         # Delete the message using the new method
-        success = await db.delete_message(message_id=message_id, user_id=current_user.id)
-        
+        success = await db.delete_message(
+            message_id=message_id, user_id=current_user.id
+        )
+
         if success:
-            logger.info(f"Successfully deleted message {message_id} for user {current_user.id}")
+            logger.info(
+                f"Successfully deleted message {message_id} for user {current_user.id}"
+            )
             return {
                 "message": "Message deleted successfully",
                 "message_id": message_id,

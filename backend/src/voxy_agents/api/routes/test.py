@@ -386,9 +386,7 @@ async def batch_test_subagents(request: BatchTestRequest):
             )
             failed += 1
 
-    logger.info(
-        f"✅ Batch testing completed: {successful} successful, {failed} failed"
-    )
+    logger.info(f"✅ Batch testing completed: {successful} successful, {failed} failed")
 
     return BatchTestResponse(
         results=results,

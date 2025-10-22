@@ -10,7 +10,8 @@ Date: 2025-10-14
 
 import os
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Any, Optional
+
 from loguru import logger
 
 
@@ -45,7 +46,7 @@ class ReasoningConfig:
     # Fallback settings
     enable_log_parsing: bool = True  # Fallback para providers sem API de reasoning
 
-    def to_openrouter_params(self, provider: str, model: str) -> Dict[str, Any]:
+    def to_openrouter_params(self, provider: str, model: str) -> dict[str, Any]:
         """
         Converte config para formato OpenRouter unificado.
 
@@ -62,8 +63,8 @@ class ReasoningConfig:
         if not self.enabled:
             return {}
 
-        params: Dict[str, Any] = {}
-        reasoning_config = {"enabled": True}
+        params: dict[str, Any] = {}
+        reasoning_config: dict[str, Any] = {"enabled": True}
 
         # Prioridade 1: max_tokens (mais específico)
         if self.thinking_budget_tokens:
@@ -78,14 +79,12 @@ class ReasoningConfig:
         params["reasoning"] = reasoning_config
 
         logger.bind(event="REASONING_CONFIG|OPENROUTER").debug(
-            "OpenRouter unified reasoning enabled",
-            config=reasoning_config,
-            model=model
+            "OpenRouter unified reasoning enabled", config=reasoning_config, model=model
         )
 
         return params
 
-    def to_litellm_params(self, provider: str, model: str) -> Dict[str, Any]:
+    def to_litellm_params(self, provider: str, model: str) -> dict[str, Any]:
         """
         Converte config para parâmetros LiteLLM conforme o provider.
 
@@ -106,14 +105,14 @@ class ReasoningConfig:
         if provider == "openrouter" or model.startswith("openrouter/"):
             return self.to_openrouter_params(provider, model)
 
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         # Claude Extended Thinking (ANTHROPIC DIRETO)
         if provider in ["anthropic", "claude"] or "claude" in model.lower():
             if self.thinking_budget_tokens:
                 params["thinking"] = {
                     "type": "enabled",
-                    "budget_tokens": self.thinking_budget_tokens
+                    "budget_tokens": self.thinking_budget_tokens,
                 }
 
         # Gemini Thinking Config (GOOGLE DIRETO)
@@ -124,13 +123,15 @@ class ReasoningConfig:
                 }
 
         # OpenAI Reasoning Effort (OPENAI DIRETO)
-        elif provider == "openai" or model.startswith("gpt-") or model.startswith("o1-"):
+        elif (
+            provider == "openai" or model.startswith("gpt-") or model.startswith("o1-")
+        ):
             if self.reasoning_effort:
                 params["reasoning_effort"] = self.reasoning_effort
 
         return params
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         """Retorna metadata de reasoning para logging."""
         return {
             "enabled": self.enabled,
@@ -138,13 +139,14 @@ class ReasoningConfig:
             "thinking_budget_tokens": self.thinking_budget_tokens,
             "gemini_thinking_budget": self.gemini_thinking_budget,
             "reasoning_effort": self.reasoning_effort,
-            "enable_log_parsing": self.enable_log_parsing
+            "enable_log_parsing": self.enable_log_parsing,
         }
 
 
 # ============================================================================
 # Configuration Loaders
 # ============================================================================
+
 
 def load_orchestrator_reasoning_config() -> ReasoningConfig:
     """Carrega configuração de reasoning para VOXY Orchestrator."""
@@ -165,12 +167,11 @@ def load_orchestrator_reasoning_config() -> ReasoningConfig:
         enabled=enabled,
         thinking_budget_tokens=thinking_budget_int,
         gemini_thinking_budget=gemini_budget_int,
-        reasoning_effort=reasoning_effort or "medium"
+        reasoning_effort=reasoning_effort or "medium",
     )
 
     logger.bind(event="REASONING_CONFIG|ORCHESTRATOR_LOADED").info(
-        "Orchestrator reasoning config loaded",
-        **config.get_metadata()
+        "Orchestrator reasoning config loaded", **config.get_metadata()
     )
 
     return config
@@ -195,12 +196,11 @@ def load_vision_reasoning_config() -> ReasoningConfig:
         enabled=enabled,
         thinking_budget_tokens=thinking_budget_int,
         gemini_thinking_budget=gemini_budget_int,
-        reasoning_effort=reasoning_effort or "medium"
+        reasoning_effort=reasoning_effort or "medium",
     )
 
     logger.bind(event="REASONING_CONFIG|VISION_LOADED").info(
-        "Vision Agent reasoning config loaded",
-        **config.get_metadata()
+        "Vision Agent reasoning config loaded", **config.get_metadata()
     )
 
     return config
@@ -216,12 +216,11 @@ def load_calculator_reasoning_config() -> ReasoningConfig:
     config = ReasoningConfig(
         enabled=enabled,
         strategy="response_field",  # Grok retorna reasoning_content
-        enable_log_parsing=True  # Fallback
+        enable_log_parsing=True,  # Fallback
     )
 
     logger.bind(event="REASONING_CONFIG|CALCULATOR_LOADED").info(
-        "Calculator Agent reasoning config loaded",
-        **config.get_metadata()
+        "Calculator Agent reasoning config loaded", **config.get_metadata()
     )
 
     return config
@@ -238,12 +237,11 @@ def load_corrector_reasoning_config() -> ReasoningConfig:
     config = ReasoningConfig(
         enabled=enabled,
         gemini_thinking_budget=gemini_budget_int if enabled else None,
-        enable_log_parsing=True
+        enable_log_parsing=True,
     )
 
     logger.bind(event="REASONING_CONFIG|CORRECTOR_LOADED").info(
-        "Corrector Agent reasoning config loaded",
-        **config.get_metadata()
+        "Corrector Agent reasoning config loaded", **config.get_metadata()
     )
 
     return config
@@ -260,12 +258,11 @@ def load_translator_reasoning_config() -> ReasoningConfig:
     config = ReasoningConfig(
         enabled=enabled,
         gemini_thinking_budget=gemini_budget_int if enabled else None,
-        enable_log_parsing=True
+        enable_log_parsing=True,
     )
 
     logger.bind(event="REASONING_CONFIG|TRANSLATOR_LOADED").info(
-        "Translator Agent reasoning config loaded",
-        **config.get_metadata()
+        "Translator Agent reasoning config loaded", **config.get_metadata()
     )
 
     return config
@@ -276,11 +273,7 @@ def load_weather_reasoning_config() -> ReasoningConfig:
     # Weather Agent não precisa de reasoning (apenas consulta API)
     enabled = os.getenv("WEATHER_REASONING_ENABLED", "false").lower() == "true"
 
-    config = ReasoningConfig(
-        enabled=enabled,
-        strategy="none",
-        enable_log_parsing=False
-    )
+    config = ReasoningConfig(enabled=enabled, strategy="none", enable_log_parsing=False)
 
     logger.bind(event="REASONING_CONFIG|WEATHER_LOADED").debug(
         "Weather Agent reasoning config loaded (disabled by default)"
@@ -316,12 +309,11 @@ def load_generic_reasoning_config(agent_name: str) -> ReasoningConfig:
         thinking_budget_tokens=thinking_budget_int,
         gemini_thinking_budget=gemini_budget_int,
         reasoning_effort=reasoning_effort,
-        enable_log_parsing=True
+        enable_log_parsing=True,
     )
 
     logger.bind(event="REASONING_CONFIG|GENERIC_LOADED").info(
-        f"{agent_name} reasoning config loaded",
-        **config.get_metadata()
+        f"{agent_name} reasoning config loaded", **config.get_metadata()
     )
 
     return config

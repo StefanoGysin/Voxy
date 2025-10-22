@@ -98,7 +98,7 @@ class VisionAgent:
         logger.bind(event="VISION_AGENT|INIT").info(
             "Vision Agent initialized",
             model=self.config.get_litellm_model_path(),
-            provider=self.config.provider
+            provider=self.config.provider,
         )
 
     async def analyze_image(
@@ -127,8 +127,7 @@ class VisionAgent:
 
         try:
             logger.bind(event="VISION_AGENT|ANALYSIS_START").info(
-                "Vision analysis starting",
-                image_url=image_url[:100]
+                "Vision analysis starting", image_url=image_url[:100]
             )
 
             # 1. Check intelligent cache first
@@ -142,7 +141,7 @@ class VisionAgent:
 
                 logger.bind(event="VISION_AGENT|CACHE_HIT").info(
                     "Cache HIT: Returning cached result",
-                    processing_time=processing_time
+                    processing_time=processing_time,
                 )
 
                 # Return structured result from cache
@@ -180,10 +179,10 @@ class VisionAgent:
 
             # 4. Configure API call parameters
             token_map = {"minimal": 500, "low": 1000, "medium": 1500, "high": 2000}
-            max_tokens = token_map.get(reasoning_effort, 1000)
+            token_map.get(reasoning_effort, 1000)
 
             timeout_map = {"minimal": 15.0, "low": 30.0, "medium": 60.0, "high": 120.0}
-            adaptive_timeout = timeout_map.get(reasoning_effort, 30.0)
+            timeout_map.get(reasoning_effort, 30.0)
 
             # 5. Build optimized prompt
             prompt = self._build_analysis_prompt(
@@ -205,23 +204,23 @@ class VisionAgent:
             api_start = datetime.now()
 
             # Clear Universal Reasoning buffer before new run
-            from ...utils.universal_reasoning_capture import clear_universal_reasoning
-            clear_universal_reasoning()
+            from ...utils.universal_reasoning_capture import clear_reasoning
+
+            clear_reasoning()
 
             try:
                 logger.bind(event="VISION_AGENT|API_CALL").info(
                     "Vision API call starting",
                     model=self.config.model_name,
-                    reasoning=reasoning_effort
+                    reasoning=reasoning_effort,
                 )
 
                 # Runner.run() with multimodal messages (posicional, não nomeado)
-                result = await Runner.run(self.agent, messages)
+                result = await Runner.run(self.agent, messages)  # type: ignore[arg-type]
 
                 api_duration = (datetime.now() - api_start).total_seconds()
                 logger.bind(event="VISION_AGENT|API_SUCCESS").info(
-                    "Vision API call completed",
-                    api_duration=api_duration
+                    "Vision API call completed", api_duration=api_duration
                 )
 
                 # Update adaptive reasoning performance stats
@@ -231,9 +230,9 @@ class VisionAgent:
 
                 # 🌟 Process reasoning items from RunResult (similar to VoxyOrchestrator)
                 items_to_process = []
-                if hasattr(result, 'new_items') and result.new_items:
+                if hasattr(result, "new_items") and result.new_items:
                     items_to_process = result.new_items
-                elif hasattr(result, 'items') and result.items:
+                elif hasattr(result, "items") and result.items:
                     items_to_process = result.items
 
                 if items_to_process:
@@ -244,40 +243,47 @@ class VisionAgent:
                         item_dict = None
 
                         # Handle different item formats
-                        if hasattr(item, 'raw_item'):
+                        if hasattr(item, "raw_item"):
                             raw_item = item.raw_item
                             if isinstance(raw_item, dict):
                                 item_dict = raw_item
-                            elif hasattr(raw_item, '__dict__'):
-                                item_dict = raw_item.__dict__
+                            elif hasattr(raw_item, "__dict__"):
+                                item_dict = raw_item.__dict__  # type: ignore[assignment]
                             else:
-                                item_dict = raw_item
-                        elif hasattr(item, '__dict__'):
-                            item_dict = item.__dict__
+                                item_dict = raw_item  # type: ignore[assignment]
+                        elif hasattr(item, "__dict__"):
+                            item_dict = item.__dict__  # type: ignore[assignment]
                         elif isinstance(item, dict):
-                            item_dict = item
+                            item_dict = item  # type: ignore[assignment]
 
                         # Process reasoning items
                         if item_dict and isinstance(item_dict, dict):
-                            item_type = item_dict.get('type')
+                            item_type = item_dict.get("type")
 
-                            if item_type == 'reasoning':
-                                logger.bind(event="VISION_AGENT|SDK_REASONING_FOUND").info(
+                            if item_type == "reasoning":
+                                logger.bind(
+                                    event="VISION_AGENT|SDK_REASONING_FOUND"
+                                ).info(
                                     "✅ Reasoning item found in Vision Agent RunResult!",
-                                    has_summary=bool(item_dict.get('summary')),
-                                    summary_count=len(item_dict.get('summary', [])) if item_dict.get('summary') else 0
+                                    has_summary=bool(item_dict.get("summary")),
+                                    summary_count=(
+                                        len(item_dict.get("summary", []))  # type: ignore[arg-type]
+                                        if item_dict.get("summary")
+                                        else 0
+                                    ),
                                 )
 
                                 # Capture via Universal Reasoning System
                                 capture_reasoning(
                                     response=item_dict,
                                     provider=self.config.provider,
-                                    model=self.config.get_litellm_model_path()
+                                    model=self.config.get_litellm_model_path(),
                                 )
 
                 # 🌟 Retrieve and log captured reasoning with hierarchical formatting
-                from ...utils.universal_reasoning_capture import get_universal_reasoning
-                reasoning_list = get_universal_reasoning()
+                from ...utils.universal_reasoning_capture import get_captured_reasoning
+
+                reasoning_list = get_captured_reasoning()
 
                 # Log summary of captured reasoning
                 if reasoning_list:
@@ -287,31 +293,56 @@ class VisionAgent:
 
                     # Log each reasoning block with hierarchical formatting
                     for idx, reasoning_content in enumerate(reasoning_list):
-                        thinking_text = reasoning_content.thinking_text or reasoning_content.thought_summary or ""
+                        thinking_text = (
+                            reasoning_content.thinking_text
+                            or reasoning_content.thought_summary
+                            or ""
+                        )
 
                         # Format reasoning in hierarchical structure
-                        reasoning_log = f"🧠 [VISION REASONING {idx + 1}/{len(reasoning_list)}]\n"
-                        reasoning_log += f"   ├─ Provider: {reasoning_content.provider}\n"
+                        reasoning_log = (
+                            f"🧠 [VISION REASONING {idx + 1}/{len(reasoning_list)}]\n"
+                        )
+                        reasoning_log += (
+                            f"   ├─ Provider: {reasoning_content.provider}\n"
+                        )
                         reasoning_log += f"   ├─ Model: {reasoning_content.model}\n"
-                        reasoning_log += f"   ├─ Strategy: {reasoning_content.extraction_strategy}\n"
+                        reasoning_log += (
+                            f"   ├─ Strategy: {reasoning_content.extraction_strategy}\n"
+                        )
 
                         if reasoning_content.reasoning_tokens:
-                            reasoning_log += f"   ├─ Tokens: {reasoning_content.reasoning_tokens}\n"
+                            reasoning_log += (
+                                f"   ├─ Tokens: {reasoning_content.reasoning_tokens}\n"
+                            )
 
                         if reasoning_content.reasoning_effort:
-                            reasoning_log += f"   ├─ Effort: {reasoning_content.reasoning_effort}\n"
+                            reasoning_log += (
+                                f"   ├─ Effort: {reasoning_content.reasoning_effort}\n"
+                            )
 
                         if thinking_text:
                             # Truncate and format thinking text
-                            preview = thinking_text[:400] if len(thinking_text) > 400 else thinking_text
-                            preview_lines = preview.split('\n')
+                            preview = (
+                                thinking_text[:400]
+                                if len(thinking_text) > 400
+                                else thinking_text
+                            )
+                            preview_lines = preview.split("\n")
 
-                            reasoning_log += f"   ├─ Length: {len(thinking_text)} chars\n"
-                            reasoning_log += f"   └─ 💭 Thinking:\n"
+                            reasoning_log += (
+                                f"   ├─ Length: {len(thinking_text)} chars\n"
+                            )
+                            reasoning_log += "   └─ 💭 Thinking:\n"
 
                             # Format each line of thinking with proper indentation
-                            for i, line in enumerate(preview_lines[:10]):  # Max 10 lines
-                                if i == len(preview_lines[:10]) - 1 and len(thinking_text) > 400:
+                            for i, line in enumerate(
+                                preview_lines[:10]
+                            ):  # Max 10 lines
+                                if (
+                                    i == len(preview_lines[:10]) - 1
+                                    and len(thinking_text) > 400
+                                ):
                                     reasoning_log += f"      {line}...\n"
                                 else:
                                     reasoning_log += f"      {line}\n"
@@ -319,10 +350,12 @@ class VisionAgent:
                             if len(preview_lines) > 10 or len(thinking_text) > 400:
                                 reasoning_log += f"      [...{len(thinking_text) - 400} chars omitted]"
 
-                        logger.bind(event="VISION_AGENT|REASONING_CAPTURED").info(reasoning_log)
+                        logger.bind(event="VISION_AGENT|REASONING_CAPTURED").info(
+                            reasoning_log
+                        )
 
                     # Clear buffer after logging
-                    clear_universal_reasoning()
+                    clear_reasoning()
 
                 # Extract content
                 content = result.final_output
@@ -334,9 +367,7 @@ class VisionAgent:
             except Exception as e:
                 api_duration = (datetime.now() - api_start).total_seconds()
                 logger.bind(event="VISION_AGENT|API_ERROR").error(
-                    "Vision API call failed",
-                    api_duration=api_duration,
-                    error=str(e)
+                    "Vision API call failed", api_duration=api_duration, error=str(e)
                 )
                 raise
 
@@ -367,7 +398,7 @@ class VisionAgent:
                 "Vision analysis completed successfully",
                 processing_time=total_processing_time,
                 model=self.config.model_name,
-                cost=cost
+                cost=cost,
             )
 
             return VisionAnalysisResult(
@@ -394,9 +425,7 @@ class VisionAgent:
         except Exception as e:
             processing_time = (datetime.now() - start_time).total_seconds()
             logger.bind(event="VISION_AGENT|ANALYSIS_ERROR").error(
-                "Vision analysis failed",
-                processing_time=processing_time,
-                error=str(e)
+                "Vision analysis failed", processing_time=processing_time, error=str(e)
             )
 
             return VisionAnalysisResult(
@@ -577,8 +606,7 @@ class VisionAgent:
 
         except Exception as e:
             logger.bind(event="VISION_AGENT|COST_EXTRACTION_ERROR").warning(
-                "Failed to extract cost from result",
-                error=str(e)
+                "Failed to extract cost from result", error=str(e)
             )
             return 0.02  # Conservative fallback estimate
 
@@ -631,19 +659,21 @@ class VisionAgent:
         try:
             # Test with minimal image
             test_image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-            result, metadata = await self.analyze_image(
+            vision_result = await self.analyze_image(
                 image_url=test_image,
                 query="teste",
                 analysis_type="general",
                 detail_level="basic",
             )
 
-            return "análise" in result.lower() or not metadata.get("error")
+            return (
+                "análise" in vision_result.analysis.lower()
+                or not vision_result.metadata.get("error")
+            )
 
         except Exception as e:
             logger.bind(event="VISION_AGENT|HEALTH_CHECK_ERROR").error(
-                "Health check failed for vision agent",
-                error=str(e)
+                "Health check failed for vision agent", error=str(e)
             )
             return False
 

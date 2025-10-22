@@ -40,10 +40,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from voxy_agents.utils.test_subagents import SubagentTester
 
-
 # ============================================================================
 # Colors for terminal output
 # ============================================================================
+
 
 class Colors:
     """ANSI color codes for terminal output."""
@@ -143,7 +143,9 @@ async def test_voxy(args):
 
     # Benchmark mode
     if args.benchmark:
-        print_colored(f"🏁 Benchmark Mode: {args.iterations} iterations\n", Colors.WARNING)
+        print_colored(
+            f"🏁 Benchmark Mode: {args.iterations} iterations\n", Colors.WARNING
+        )
 
         times = []
         costs = []
@@ -155,7 +157,7 @@ async def test_voxy(args):
             start = datetime.now()
             result = await test_voxy_orchestrator(
                 message=args.message,
-                image_url=args.image_url if hasattr(args, 'image_url') else None,
+                image_url=args.image_url if hasattr(args, "image_url") else None,
                 bypass_cache=args.bypass_cache,
                 bypass_rate_limit=args.bypass_rate_limit,
                 include_tools_metadata=True,
@@ -187,6 +189,7 @@ async def test_voxy(args):
         if tools_used_list:
             # Count tool usage frequency
             from collections import Counter
+
             all_tools = [tool for tools in tools_used_list for tool in tools]
             tool_counts = Counter(all_tools)
 
@@ -202,7 +205,7 @@ async def test_voxy(args):
     start_time = datetime.now()
     result = await test_voxy_orchestrator(
         message=args.message,
-        image_url=args.image_url if hasattr(args, 'image_url') else None,
+        image_url=args.image_url if hasattr(args, "image_url") else None,
         bypass_cache=args.bypass_cache,
         bypass_rate_limit=args.bypass_rate_limit,
         include_tools_metadata=True,
@@ -252,9 +255,7 @@ async def run_test(agent_name: str, input_data: dict, args):
 
     # Benchmark mode
     if args.benchmark:
-        return await run_benchmark(
-            tester, agent_name, input_data, args.iterations
-        )
+        return await run_benchmark(tester, agent_name, input_data, args.iterations)
 
     # Single test execution
     print_colored("⚡ Running test...\n", Colors.WARNING)
@@ -346,9 +347,8 @@ def print_results(result, total_time=None):
     print_colored("📊 Metadata:", Colors.OKCYAN + Colors.BOLD)
 
     # Check if this is a VOXY Orchestrator test (has raw_metadata with orchestrator info)
-    is_voxy_test = (
-        result.metadata.raw_metadata
-        and result.metadata.raw_metadata.get("orchestrator_model")
+    is_voxy_test = result.metadata.raw_metadata and result.metadata.raw_metadata.get(
+        "orchestrator_model"
     )
 
     if is_voxy_test:
@@ -361,11 +361,11 @@ def print_results(result, total_time=None):
         subagent_model = result.metadata.model_used
         tools_used = result.metadata.tools_used or []
 
-        print(f"   ├─ 🤖 VOXY Orchestrator")
+        print("   ├─ 🤖 VOXY Orchestrator")
         print(f"   │  ├─ Model: {orchestrator_model}")
-        print(f"   │  ├─ Reasoning: medium")
-        print(f"   │  └─ Orchestration: ~0.5s")
-        print(f"   │")
+        print("   │  ├─ Reasoning: medium")
+        print("   │  └─ Orchestration: ~0.5s")
+        print("   │")
         print(f"   ├─ 🔧 Subagent: {subagent_name.title()}")
         print(f"   │  ├─ Model: {subagent_model}")
 
@@ -378,8 +378,8 @@ def print_results(result, total_time=None):
         if subagent_time < 0:
             subagent_time = result.metadata.processing_time
         print(f"   │  └─ Execution Time: {subagent_time:.2f}s")
-        print(f"   │")
-        print(f"   └─ 📈 Performance")
+        print("   │")
+        print("   └─ 📈 Performance")
         print(f"      ├─ Total Time: {result.metadata.processing_time:.3f}s")
 
         if result.metadata.cost:
@@ -387,7 +387,7 @@ def print_results(result, total_time=None):
 
         if result.metadata.tokens_used:
             tokens = result.metadata.tokens_used
-            total = tokens.get('total_tokens', 'N/A')
+            total = tokens.get("total_tokens", "N/A")
             print(f"      ├─ Tokens: {total}")
 
         print(f"      └─ Cache Hit: {result.metadata.cache_hit}")
@@ -460,9 +460,7 @@ def export_results(result, export_path):
             print_colored(f"💾 Results exported to {export_path}", Colors.OKGREEN)
 
         else:
-            print_colored(
-                "⚠️  Unknown export format. Use .json or .csv", Colors.WARNING
-            )
+            print_colored("⚠️  Unknown export format. Use .json or .csv", Colors.WARNING)
 
     except Exception as e:
         print_colored(f"❌ Export failed: {e}", Colors.FAIL)
@@ -497,24 +495,22 @@ async def interactive_mode():
                 break
 
             if agent_name not in tester.get_available_agents():
-                print_colored(
-                    f"❌ Unknown agent: {agent_name}", Colors.FAIL
-                )
+                print_colored(f"❌ Unknown agent: {agent_name}", Colors.FAIL)
                 continue
 
             # Special handling for VOXY Orchestrator
             if agent_name == "voxy":
                 from voxy_agents.utils.test_subagents import test_voxy_orchestrator
 
-                print_colored(f"\n📋 VOXY Orchestrator", Colors.OKCYAN + Colors.BOLD)
-                print(f"  Test strategy: orchestrator_direct")
-                print(f"  Required params: message")
-                print(f"  Optional params: image_url")
+                print_colored("\n📋 VOXY Orchestrator", Colors.OKCYAN + Colors.BOLD)
+                print("  Test strategy: orchestrator_direct")
+                print("  Required params: message")
+                print("  Optional params: image_url")
 
                 # Get input data
                 print()
-                message = input(f"  message: ").strip()
-                image_url = input(f"  image_url (optional): ").strip()
+                message = input("  message: ").strip()
+                image_url = input("  image_url (optional): ").strip()
 
                 # Run test
                 print()
@@ -531,7 +527,9 @@ async def interactive_mode():
                 info = tester.get_agent_info(agent_name)
                 print_colored(f"\n📋 {agent_name} Agent", Colors.OKCYAN + Colors.BOLD)
                 print(f"  Model: {info['model']}")
-                print(f"  Required params: {', '.join(info.get('required_params', []))}")
+                print(
+                    f"  Required params: {', '.join(info.get('required_params', []))}"
+                )
 
                 # Get input data
                 input_data = {}

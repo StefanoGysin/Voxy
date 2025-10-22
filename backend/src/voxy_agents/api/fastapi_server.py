@@ -6,7 +6,6 @@ Implements Progressive Disclosure Interface from CREATIVE MODE decisions.
 """
 
 import json
-import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
@@ -18,8 +17,10 @@ from fastapi import (
     Query,
     WebSocket,
     WebSocketDisconnect,
+    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 from pydantic import BaseModel
 
 from ..main import get_voxy_system
@@ -28,8 +29,6 @@ from .middleware.logging_context import LoggingContextMiddleware
 from .routes import auth_router, chat_router, images_router, sessions_router
 from .routes.messages import router as messages_router
 from .routes.test import router as test_router
-from loguru import logger
-
 
 # Pydantic models for API - Chat models moved to routes/chat.py
 # Kept only system-level models here
@@ -90,6 +89,7 @@ class ConnectionManager:
 async def lifespan(app: FastAPI):
     """Application lifespan events for startup and shutdown."""
     import time
+
     startup_start = time.perf_counter()
 
     # Startup
@@ -214,11 +214,13 @@ async def get_websocket_token(
     Validates JWT token and returns TokenData or closes connection with 1008 (Policy Violation).
     """
     if not token:
-        logger.warning("🚫 WebSocket connection rejected: No authentication token provided")
+        logger.warning(
+            "🚫 WebSocket connection rejected: No authentication token provided"
+        )
         await websocket.close(code=1008, reason="Authentication required")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication token required for WebSocket connection"
+            detail="Authentication token required for WebSocket connection",
         )
 
     try:
@@ -244,7 +246,7 @@ async def get_websocket_token(
         await websocket.close(code=1008, reason="Authentication error")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication error: {str(e)}"
+            detail=f"Authentication error: {str(e)}",
         )
 
 
@@ -269,11 +271,11 @@ async def websocket_endpoint(
         )
         await websocket.close(
             code=1008,
-            reason=f"User ID mismatch: URL user_id must match authenticated token"
+            reason="User ID mismatch: URL user_id must match authenticated token",
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User ID in URL does not match authenticated user"
+            detail="User ID in URL does not match authenticated user",
         )
 
     await manager.connect(websocket, user_id)
@@ -283,7 +285,7 @@ async def websocket_endpoint(
         user_id,
         {
             "type": "connection",
-            "message": f"Conectado ao VOXY Agents System (authenticated)",
+            "message": "Conectado ao VOXY Agents System (authenticated)",
             "user_id": user_id,
             "email": token_data.email,
             "authenticated": True,

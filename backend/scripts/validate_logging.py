@@ -2,8 +2,9 @@
 Script de validação para cada fase da migração Loguru.
 Uso: poetry run python scripts/validate_logging.py --phase 2
 """
-import sys
+
 import logging
+import sys
 from pathlib import Path
 
 # Adicionar src ao PYTHONPATH
@@ -15,7 +16,11 @@ def validate_phase_2_intercept():
     print("🔍 Validando Fase 2: InterceptHandler\n")
 
     # Configurar Loguru ANTES de testar
-    from voxy_agents.config.logger_config import configure_logger, setup_stdlib_intercept
+    from voxy_agents.config.logger_config import (
+        configure_logger,
+        setup_stdlib_intercept,
+    )
+
     configure_logger()
     setup_stdlib_intercept()
 
@@ -71,13 +76,18 @@ def validate_phase_2_masking():
     print("\n🔍 Testando mascaramento de dados sensíveis\n")
 
     from loguru import logger
+
     from voxy_agents.config.log_filters import mask_sensitive_data
 
     output = []
-    handler_id = logger.add(output.append, format="{message}", filter=mask_sensitive_data)
+    handler_id = logger.add(
+        output.append, format="{message}", filter=mask_sensitive_data
+    )
 
     # Testar vários padrões sensíveis
-    logger.info("API Key: sk-or-v1-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd")
+    logger.info(
+        "API Key: sk-or-v1-1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+    )
     logger.info("JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature")
     logger.info("Email: user@example.com")
     logger.info("Bearer: Bearer abc123def456")

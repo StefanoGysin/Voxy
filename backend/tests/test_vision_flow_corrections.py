@@ -8,8 +8,9 @@ Validates:
 4. ChatResponse includes tools_used array
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.voxy_agents.core.subagents.vision_agent import VisionAnalysisResult
 from src.voxy_agents.core.voxy_orchestrator import VoxyOrchestrator
@@ -71,9 +72,7 @@ class TestVisionAgentFlow:
             mock_response = MagicMock()
             mock_response.choices = [MagicMock()]
             mock_response.choices[0].message.content = "Análise técnica da imagem"
-            mock_response.usage = MagicMock(
-                prompt_tokens=100, completion_tokens=50
-            )
+            mock_response.usage = MagicMock(prompt_tokens=100, completion_tokens=50)
             mock_create.return_value = mock_response
 
             result = await vision_agent.analyze_image(
@@ -145,9 +144,9 @@ class TestVOXYOrchestratorPostProcessing:
         ) as mock_create:
             mock_response = MagicMock()
             mock_response.choices = [MagicMock()]
-            mock_response.choices[
-                0
-            ].message.content = "Que lindo! 🐕 Na imagem eu vejo um Golden Retriever sentado, ele parece muito fofo!"
+            mock_response.choices[0].message.content = (
+                "Que lindo! 🐕 Na imagem eu vejo um Golden Retriever sentado, ele parece muito fofo!"
+            )
             mock_create.return_value = mock_response
 
             conversational = await orchestrator._conversationalize_vision_result(
@@ -193,9 +192,7 @@ class TestVOXYOrchestratorPostProcessing:
                 "_conversationalize_vision_result",
                 new_callable=AsyncMock,
             ) as mock_conversationalize:
-                mock_conversationalize.return_value = (
-                    "É um emoji de carinha feliz! 😊 Aquele clássico amarelinho sorrindo."
-                )
+                mock_conversationalize.return_value = "É um emoji de carinha feliz! 😊 Aquele clássico amarelinho sorrindo."
 
                 response, metadata = await orchestrator.chat(
                     message="que emoji é este?",
@@ -281,6 +278,7 @@ class TestChatResponseModel:
     def test_chat_response_with_tools_used(self):
         """Verify ChatResponse model includes tools_used field."""
         from datetime import datetime
+
         from src.voxy_agents.api.routes.chat import ChatResponse
 
         response = ChatResponse(

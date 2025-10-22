@@ -6,7 +6,6 @@ Focuses on critical P0 components: WebSocket, health checks, routing.
 """
 
 import json
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -276,15 +275,18 @@ class TestWebSocketEndpoint:
 
     @patch("src.voxy_agents.api.fastapi_server.get_voxy_system")
     @patch("src.voxy_agents.api.middleware.auth.verify_token")
-    def test_websocket_connection_flow_authenticated(self, mock_verify_token, mock_get_system, websocket_client):
+    def test_websocket_connection_flow_authenticated(
+        self, mock_verify_token, mock_get_system, websocket_client
+    ):
         """Test WebSocket connection flow with valid authentication."""
         # Mock token validation
         from src.voxy_agents.api.middleware.auth import TokenData
+
         mock_verify_token.return_value = TokenData(
             user_id="test_user",
             email="test@example.com",
             role="authenticated",
-            jti="test-jti-123"
+            jti="test-jti-123",
         )
 
         mock_system = MagicMock()
@@ -294,7 +296,9 @@ class TestWebSocketEndpoint:
         mock_get_system.return_value = mock_system
 
         # Test WebSocket connection with authentication token
-        with websocket_client.websocket_connect("/ws/test_user?token=valid_test_token") as websocket:
+        with websocket_client.websocket_connect(
+            "/ws/test_user?token=valid_test_token"
+        ) as websocket:
             # First, receive connection acknowledgment message
             connection_data = websocket.receive_text()
             connection_response = json.loads(connection_data)
@@ -337,7 +341,9 @@ class TestWebSocketEndpoint:
         """Test WebSocket connection with invalid token - should fail."""
         # Should raise exception because token is invalid
         with pytest.raises(Exception):
-            with websocket_client.websocket_connect("/ws/test_user?token=invalid_token"):
+            with websocket_client.websocket_connect(
+                "/ws/test_user?token=invalid_token"
+            ):
                 pass
 
     @patch("src.voxy_agents.api.middleware.auth.verify_token")
@@ -350,7 +356,7 @@ class TestWebSocketEndpoint:
             user_id="alice",
             email="alice@example.com",
             role="authenticated",
-            jti="test-jti-456"
+            jti="test-jti-456",
         )
 
         # Should raise exception because user_id mismatch
@@ -372,7 +378,9 @@ class TestFastAPIIntegration:
         return TestClient(app)
 
     @patch("src.voxy_agents.api.fastapi_server.get_voxy_system")
-    def test_full_system_health_flow_integration(self, mock_get_system, integration_client):
+    def test_full_system_health_flow_integration(
+        self, mock_get_system, integration_client
+    ):
         """Test complete system health check flow."""
         # Setup mock system
         mock_system = MagicMock()

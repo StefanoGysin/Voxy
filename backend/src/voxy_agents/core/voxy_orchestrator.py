@@ -16,9 +16,9 @@ Migração Loguru - Sprint 4 + Sprint Multi-Agent Hierarchical Logging
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Optional
 
-from agents import Agent, Runner, function_tool, ModelSettings
+from agents import Agent, ModelSettings, Runner, function_tool
 from loguru import logger
 from openai import AsyncOpenAI
 
@@ -42,6 +42,7 @@ class ToolInvocation:
         output: Resposta retornada pelo tool (string)
         call_id: ID único da chamada (para debugging)
     """
+
     tool_name: str
     agent_name: str
     model: str
@@ -73,6 +74,7 @@ class VoxyOrchestrator:
     def __init__(self):
         """Initialize VOXY orchestrator with OpenAI Agents SDK + LiteLLM."""
         import time
+
         start_time = time.perf_counter()
 
         # Load LiteLLM configuration for orchestrator
@@ -88,7 +90,7 @@ class VoxyOrchestrator:
         if self.reasoning_params:
             logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CONFIG").info(
                 "Orchestrator reasoning configured",
-                params=list(self.reasoning_params.keys())
+                params=list(self.reasoning_params.keys()),
             )
 
         # Safety checker
@@ -204,13 +206,10 @@ class VoxyOrchestrator:
         # NOTE: SDK v0.3.0+ requires ModelSettings to be an instance, not None
         if self.reasoning_params:
             # Pass reasoning params via ModelSettings.extra_args
-            model_settings = ModelSettings(
-                extra_args=self.reasoning_params
-            )
+            model_settings = ModelSettings(extra_args=self.reasoning_params)
 
             logger.bind(event="VOXY_ORCHESTRATOR|MODEL_SETTINGS").debug(
-                "ModelSettings configured with reasoning",
-                has_reasoning=True
+                "ModelSettings configured with reasoning", has_reasoning=True
             )
         else:
             # Create empty ModelSettings when reasoning is disabled
@@ -439,7 +438,11 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # Calculate transformation metrics
             original_len = len(vision_result.analysis)
             conversational_len = len(conversational_response)
-            diff_percent = ((conversational_len - original_len) / original_len) * 100 if original_len > 0 else 0
+            diff_percent = (
+                ((conversational_len - original_len) / original_len) * 100
+                if original_len > 0
+                else 0
+            )
             diff_sign = "+" if diff_percent > 0 else ""
 
             logger.info(
@@ -454,13 +457,12 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
 
         except Exception as e:
             logger.bind(event="VOXY_ORCHESTRATOR|CONVERSATIONALIZATION_ERROR").error(
-                "Conversationalization failed, returning raw analysis",
-                error=str(e)
+                "Conversationalization failed, returning raw analysis", error=str(e)
             )
             # Fallback: return raw analysis if conversationalization fails
             return vision_result.analysis
 
-    def _extract_tool_invocations(self, result) -> List[ToolInvocation]:
+    def _extract_tool_invocations(self, result) -> list[ToolInvocation]:
         """
         Extrai invocações de tools do RunResult para logging hierárquico.
 
@@ -483,15 +485,15 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             item_type = type(item).__name__
 
             # Extract tool call information
-            if item_type == "ToolCallItem" and hasattr(item, 'raw_item'):
+            if item_type == "ToolCallItem" and hasattr(item, "raw_item"):
                 raw_item = item.raw_item
-                if hasattr(raw_item, 'call_id') and hasattr(raw_item, 'name'):
+                if hasattr(raw_item, "call_id") and hasattr(raw_item, "name"):
                     call_id = raw_item.call_id
                     tool_name = raw_item.name
 
                     # Parse arguments (JSON string)
                     input_args = {}
-                    if hasattr(raw_item, 'arguments'):
+                    if hasattr(raw_item, "arguments"):
                         try:
                             input_args = json.loads(raw_item.arguments)
                         except (json.JSONDecodeError, TypeError):
@@ -499,15 +501,17 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
 
                     tool_calls[call_id] = {
                         "tool_name": tool_name,
-                        "input_args": input_args
+                        "input_args": input_args,
                     }
 
             # Extract tool output
             elif item_type == "ToolCallOutputItem":
-                output = item.output if hasattr(item, 'output') else ""
+                output = item.output if hasattr(item, "output") else ""
                 # Extract call_id from raw_item (dict with tool_call_id)
-                if hasattr(item, 'raw_item') and isinstance(item.raw_item, dict):
-                    call_id = item.raw_item.get('tool_call_id') or item.raw_item.get('call_id')
+                if hasattr(item, "raw_item") and isinstance(item.raw_item, dict):
+                    call_id = item.raw_item.get("tool_call_id") or item.raw_item.get(
+                        "call_id"
+                    )
                     if call_id:
                         tool_outputs[call_id] = output
 
@@ -527,68 +531,75 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             try:
                 if tool_name == "get_weather":
                     from ..config.models_config import load_weather_config
+
                     cfg = load_weather_config()
                     model = cfg.get_litellm_model_path()
                     config = {
                         "max_tokens": cfg.max_tokens,
-                        "temperature": cfg.temperature
+                        "temperature": cfg.temperature,
                     }
                 elif tool_name == "translate_text":
                     from ..config.models_config import load_translator_config
+
                     cfg = load_translator_config()
                     model = cfg.get_litellm_model_path()
                     config = {
                         "max_tokens": cfg.max_tokens,
-                        "temperature": cfg.temperature
+                        "temperature": cfg.temperature,
                     }
                 elif tool_name == "correct_text":
                     from ..config.models_config import load_corrector_config
+
                     cfg = load_corrector_config()
                     model = cfg.get_litellm_model_path()
                     config = {
                         "max_tokens": cfg.max_tokens,
-                        "temperature": cfg.temperature
+                        "temperature": cfg.temperature,
                     }
                 elif tool_name == "calculate":
                     from ..config.models_config import load_calculator_config
+
                     cfg = load_calculator_config()
                     model = cfg.get_litellm_model_path()
                     config = {
                         "max_tokens": cfg.max_tokens,
-                        "temperature": cfg.temperature
+                        "temperature": cfg.temperature,
                     }
                 elif tool_name == "analyze_image":
                     from ..config.models_config import load_vision_config
+
                     cfg = load_vision_config()
                     model = cfg.get_litellm_model_path()
                     config = {
                         "max_tokens": cfg.max_tokens,
                         "temperature": cfg.temperature,
-                        "reasoning_effort": cfg.reasoning_effort
+                        "reasoning_effort": cfg.reasoning_effort,
                     }
             except Exception as e:
                 logger.bind(event="VOXY_ORCHESTRATOR|CONFIG_LOAD_ERROR").warning(
                     f"Failed to load config for {tool_name}: {e}"
                 )
 
-            invocations.append(ToolInvocation(
-                tool_name=tool_name,
-                agent_name=agent_name,
-                model=model,
-                config=config,
-                input_args=input_args,
-                output=output[:200],  # Truncate for logging
-                call_id=call_id
-            ))
+            invocations.append(
+                ToolInvocation(
+                    tool_name=tool_name,
+                    agent_name=agent_name,
+                    model=model,
+                    config=config,
+                    input_args=input_args,
+                    output=output[:200],  # Truncate for logging
+                    call_id=call_id,
+                )
+            )
 
         return invocations
 
     def _format_hierarchical_log(
         self,
-        invocations: List[ToolInvocation],
+        invocations: list[ToolInvocation],
         total_time: float,
         trace_id: str,
-        reasoning_list: Optional[List[dict[str, str]]] = None
+        reasoning_list: Optional[list[dict[str, str]]] = None,
     ) -> str:
         """
         Formata log hierárquico mostrando VOXY delegando para subagentes + reasoning.
@@ -607,12 +618,14 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
         # Header: VOXY initialization
         lines.append(f"🤖 [TRACE:{trace_id}] VOXY Multi-Agent Flow")
         lines.append(f"   ├─ Model: {self.config.get_litellm_model_path()}")
-        lines.append(f"   ├─ Config: {self.config.max_tokens} tokens, temp={self.config.temperature}, reasoning={self.config.reasoning_effort}")
+        lines.append(
+            f"   ├─ Config: {self.config.max_tokens} tokens, temp={self.config.temperature}, reasoning={self.config.reasoning_effort}"
+        )
         lines.append("   │")
 
         # Body: Each subagent invocation
         for idx, inv in enumerate(invocations):
-            is_last = (idx == len(invocations) - 1)
+            is_last = idx == len(invocations) - 1
             branch = "└─" if is_last else "├─"
             continuation = "   " if is_last else "│  "
 
@@ -630,20 +643,30 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             config_str = ", ".join(config_parts) if config_parts else "default"
             lines.append(f"   {continuation}├─ Config: {config_str}")
 
-            lines.append(f"   {continuation}├─ 📤 Input: \"{input_preview}{'...' if len(input_preview) >= 50 else ''}\"")
-            lines.append(f"   {continuation}├─ 📥 Output: \"{inv.output}{'...' if len(inv.output) >= 200 else ''}\"")
+            lines.append(
+                f"   {continuation}├─ 📤 Input: \"{input_preview}{'...' if len(input_preview) >= 50 else ''}\""
+            )
+            lines.append(
+                f"   {continuation}├─ 📥 Output: \"{inv.output}{'...' if len(inv.output) >= 200 else ''}\""
+            )
 
             # Add reasoning if available for this invocation
             if reasoning_list:
                 for reasoning_item in reasoning_list:
                     # ReasoningContent is a dataclass, not a dict - access attributes directly
-                    reasoning_text = reasoning_item.thinking_text or reasoning_item.thought_summary or ''
+                    reasoning_text = (
+                        reasoning_item.thinking_text
+                        or reasoning_item.thought_summary
+                        or ""
+                    )
                     if reasoning_text:
                         # Truncate reasoning to 150 chars for hierarchical log
                         reasoning_preview = reasoning_text[:150]
                         if len(reasoning_text) > 150:
                             reasoning_preview += "..."
-                        lines.append(f"   {continuation}├─ 🧠 Reasoning: \"{reasoning_preview}\"")
+                        lines.append(
+                            f'   {continuation}├─ 🧠 Reasoning: "{reasoning_preview}"'
+                        )
 
             lines.append(f"   {continuation}└─ ✓ Completed")
 
@@ -677,6 +700,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
         """
         # Generate trace ID for end-to-end request tracking
         import uuid
+
         trace_id = str(uuid.uuid4())[:8]
 
         # Ensure VOXY agent is initialized
@@ -715,7 +739,9 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
 
             # 🖼️ VISION AGENT - GPT-5 multimodal analysis with lightweight post-processing
             if image_url and self._is_vision_request(message):
-                logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1").info("PATH 1: Vision bypass with lightweight post-processing")
+                logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1").info(
+                    "PATH 1: Vision bypass with lightweight post-processing"
+                )
 
                 try:
                     # Determine analysis type and detail level from message
@@ -762,7 +788,9 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                             "⚠️  Post-processing DISABLED: Returning raw analysis"
                         )
 
-                    total_processing_time = (datetime.now() - start_time).total_seconds()
+                    total_processing_time = (
+                        datetime.now() - start_time
+                    ).total_seconds()
                     self.request_count += 1
 
                     metadata = {
@@ -794,8 +822,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
 
                 except Exception as vision_error:
                     logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1_ERROR").error(
-                        "PATH 1 failed, falling back to PATH 2",
-                        error=str(vision_error)
+                        "PATH 1 failed, falling back to PATH 2", error=str(vision_error)
                     )
                     # Fallback to PATH 2 (VOXY decision) by clearing image_url
                     image_url = None
@@ -827,13 +854,18 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                 logger.bind(event="VOXY_ORCHESTRATOR|IMAGE_ANALYSIS").info(
                     "Image analysis requested",
                     image_url=image_url[:100],
-                    message=processed_message[:100]
+                    message=processed_message[:100],
                 )
             else:
-                logger.bind(event="VOXY_ORCHESTRATOR|TEXT_ONLY").debug("No image URL provided", message=message[:100])
+                logger.bind(event="VOXY_ORCHESTRATOR|TEXT_ONLY").debug(
+                    "No image URL provided", message=message[:100]
+                )
 
             # 🌟 Clear universal reasoning capture buffer
-            from voxy_agents.utils.universal_reasoning_capture import clear_reasoning as clear_universal_reasoning
+            from voxy_agents.utils.universal_reasoning_capture import (
+                clear_reasoning as clear_universal_reasoning,
+            )
+
             clear_universal_reasoning()
 
             # Use OpenAI Agents SDK v0.2.8 with automatic session management
@@ -848,13 +880,15 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # 🌟 Process reasoning items from RunResult via Universal Reasoning System
             # The Universal System's SDKReasoningExtractor handles SDK items automatically
             items_to_process = []
-            if hasattr(result, 'new_items') and result.new_items:
+            if hasattr(result, "new_items") and result.new_items:
                 items_to_process = result.new_items
-            elif hasattr(result, 'items') and result.items:
+            elif hasattr(result, "items") and result.items:
                 items_to_process = result.items
 
             if items_to_process:
-                from voxy_agents.utils.universal_reasoning_capture import capture_reasoning
+                from voxy_agents.utils.universal_reasoning_capture import (
+                    capture_reasoning,
+                )
 
                 logger.bind(event="VOXY_ORCHESTRATOR|PROCESSING_ITEMS").debug(
                     f"Processing {len(items_to_process)} items from RunResult"
@@ -865,16 +899,16 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                     item_dict = None
 
                     # Handle different item formats (SDK returns various structures)
-                    if hasattr(item, 'raw_item'):
+                    if hasattr(item, "raw_item"):
                         raw_item = item.raw_item
                         # raw_item pode ser dict ou objeto - converter para dict
                         if isinstance(raw_item, dict):
                             item_dict = raw_item
-                        elif hasattr(raw_item, '__dict__'):
+                        elif hasattr(raw_item, "__dict__"):
                             item_dict = raw_item.__dict__
                         else:
                             item_dict = raw_item
-                    elif hasattr(item, '__dict__'):
+                    elif hasattr(item, "__dict__"):
                         item_dict = item.__dict__
                     elif isinstance(item, dict):
                         item_dict = item
@@ -882,7 +916,11 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                     # Process all items through Universal Reasoning System
                     # (SDKReasoningExtractor will filter for type=='reasoning')
                     if item_dict:
-                        item_type = item_dict.get('type') if isinstance(item_dict, dict) else None
+                        item_type = (
+                            item_dict.get("type")
+                            if isinstance(item_dict, dict)
+                            else None
+                        )
 
                         logger.bind(event="VOXY_ORCHESTRATOR|ITEM_PROCESSING").debug(
                             f"Item {idx} type: {item_type}"
@@ -893,7 +931,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                         capture_reasoning(
                             response=item_dict,
                             provider=self.config.provider,
-                            model=self.config.get_litellm_model_path()
+                            model=self.config.get_litellm_model_path(),
                         )
 
             # Extract response - SDK now automatically manages session state
@@ -920,14 +958,20 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             tools_used = [inv.tool_name for inv in invocations]
 
             # 🌟 Capture reasoning from Universal System
-            from voxy_agents.utils.universal_reasoning_capture import get_captured_reasoning as get_universal_reasoning
+            from voxy_agents.utils.universal_reasoning_capture import (
+                get_captured_reasoning as get_universal_reasoning,
+            )
+
             reasoning_list = get_universal_reasoning()
 
             # Determine context (VOXY or Subagent) for reasoning attribution
             reasoning_context = "VOXY"
             if invocations:
                 # If subagents were invoked, reasoning may come from them
-                subagent_names = [TOOL_TO_AGENT_MAP.get(inv.tool_name, inv.tool_name) for inv in invocations]
+                subagent_names = [
+                    TOOL_TO_AGENT_MAP.get(inv.tool_name, inv.tool_name)
+                    for inv in invocations
+                ]
                 if len(subagent_names) == 1:
                     reasoning_context = subagent_names[0].upper()
                 elif len(subagent_names) > 1:
@@ -941,40 +985,61 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
 
                 # Log each reasoning block with hierarchical formatting
                 for idx, reasoning_content in enumerate(reasoning_list):
-                    thinking_text = reasoning_content.thinking_text or reasoning_content.thought_summary or ""
+                    thinking_text = (
+                        reasoning_content.thinking_text
+                        or reasoning_content.thought_summary
+                        or ""
+                    )
 
                     # Format reasoning in hierarchical structure
                     reasoning_log = f"🧠 [REASONING {idx + 1}/{len(reasoning_list)}]\n"
                     reasoning_log += f"   ├─ Context: {reasoning_context}\n"
                     reasoning_log += f"   ├─ Provider: {reasoning_content.provider}\n"
                     reasoning_log += f"   ├─ Model: {reasoning_content.model}\n"
-                    reasoning_log += f"   ├─ Strategy: {reasoning_content.extraction_strategy}\n"
+                    reasoning_log += (
+                        f"   ├─ Strategy: {reasoning_content.extraction_strategy}\n"
+                    )
 
                     if reasoning_content.reasoning_tokens:
-                        reasoning_log += f"   ├─ Tokens: {reasoning_content.reasoning_tokens}\n"
+                        reasoning_log += (
+                            f"   ├─ Tokens: {reasoning_content.reasoning_tokens}\n"
+                        )
 
                     if reasoning_content.reasoning_effort:
-                        reasoning_log += f"   ├─ Effort: {reasoning_content.reasoning_effort}\n"
+                        reasoning_log += (
+                            f"   ├─ Effort: {reasoning_content.reasoning_effort}\n"
+                        )
 
                     if thinking_text:
                         # Truncate and format thinking text
-                        preview = thinking_text[:400] if len(thinking_text) > 400 else thinking_text
-                        preview_lines = preview.split('\n')
+                        preview = (
+                            thinking_text[:400]
+                            if len(thinking_text) > 400
+                            else thinking_text
+                        )
+                        preview_lines = preview.split("\n")
 
                         reasoning_log += f"   ├─ Length: {len(thinking_text)} chars\n"
-                        reasoning_log += f"   └─ 💭 Thinking:\n"
+                        reasoning_log += "   └─ 💭 Thinking:\n"
 
                         # Format each line of thinking with proper indentation
                         for i, line in enumerate(preview_lines[:10]):  # Max 10 lines
-                            if i == len(preview_lines[:10]) - 1 and len(thinking_text) > 400:
+                            if (
+                                i == len(preview_lines[:10]) - 1
+                                and len(thinking_text) > 400
+                            ):
                                 reasoning_log += f"      {line}...\n"
                             else:
                                 reasoning_log += f"      {line}\n"
 
                         if len(preview_lines) > 10 or len(thinking_text) > 400:
-                            reasoning_log += f"      [...{len(thinking_text) - 400} chars omitted]"
+                            reasoning_log += (
+                                f"      [...{len(thinking_text) - 400} chars omitted]"
+                            )
 
-                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(reasoning_log)
+                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(
+                        reasoning_log
+                    )
             else:
                 logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").debug(
                     "No reasoning content captured (model may not support reasoning or reasoning disabled)"
@@ -1009,13 +1074,13 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                 logger.bind(event="VOXY_ORCHESTRATOR|HIER_LOG_DEBUG").debug(
                     "Generating hierarchical log",
                     has_reasoning=bool(reasoning_list),
-                    reasoning_count=len(reasoning_list) if reasoning_list else 0
+                    reasoning_count=len(reasoning_list) if reasoning_list else 0,
                 )
                 hierarchical_log = self._format_hierarchical_log(
                     invocations=invocations,
                     total_time=processing_time,
                     trace_id=trace_id,
-                    reasoning_list=reasoning_list if reasoning_list else None
+                    reasoning_list=reasoning_list if reasoning_list else None,
                 )
                 logger.bind(event="VOXY_ORCHESTRATOR|MULTI_AGENT_FLOW").info(
                     f"\n{hierarchical_log}"
@@ -1063,7 +1128,9 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             return response_text, metadata
 
         except Exception as e:
-            logger.bind(event="VOXY_ORCHESTRATOR|ERROR", trace_id=trace_id).exception("Error processing request")
+            logger.bind(event="VOXY_ORCHESTRATOR|ERROR", trace_id=trace_id).exception(
+                "Error processing request"
+            )
             error_metadata = {
                 "agent_type": "error",
                 "tools_used": [],

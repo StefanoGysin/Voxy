@@ -36,9 +36,13 @@ class RedisCache:
             # Test connection
             try:
                 await self._redis.ping()
-                logger.bind(event="REDIS_CACHE|CONNECT").info("Redis connection established")
-            except Exception as e:
-                logger.bind(event="REDIS_CACHE|CONNECT_ERROR").exception("Redis connection failed")
+                logger.bind(event="REDIS_CACHE|CONNECT").info(
+                    "Redis connection established"
+                )
+            except Exception:
+                logger.bind(event="REDIS_CACHE|CONNECT_ERROR").exception(
+                    "Redis connection failed"
+                )
                 self._redis = None
                 raise
 
@@ -64,12 +68,16 @@ class RedisCache:
         try:
             value = await self._redis.get(key)
             if value:
-                logger.bind(event="REDIS_CACHE|GET_HIT").debug("Cache hit", key=key[:50])
+                logger.bind(event="REDIS_CACHE|GET_HIT").debug(
+                    "Cache hit", key=key[:50]
+                )
                 return json.loads(value)
             logger.bind(event="REDIS_CACHE|GET_MISS").debug("Cache miss", key=key[:50])
             return None
         except Exception as e:
-            logger.bind(event="REDIS_CACHE|GET_ERROR").error("Redis get error", key=key[:50], error=str(e))
+            logger.bind(event="REDIS_CACHE|GET_ERROR").error(
+                "Redis get error", key=key[:50], error=str(e)
+            )
             return None
 
     async def set(
@@ -99,10 +107,14 @@ class RedisCache:
             else:
                 result = await self._redis.set(key, serialized_value)
 
-            logger.bind(event="REDIS_CACHE|SET").debug("Cache set", key=key[:50], ttl=ttl)
+            logger.bind(event="REDIS_CACHE|SET").debug(
+                "Cache set", key=key[:50], ttl=ttl
+            )
             return result
         except Exception as e:
-            logger.bind(event="REDIS_CACHE|SET_ERROR").error("Redis set error", key=key[:50], error=str(e))
+            logger.bind(event="REDIS_CACHE|SET_ERROR").error(
+                "Redis set error", key=key[:50], error=str(e)
+            )
             return False
 
     async def delete(self, key: str) -> bool:
@@ -120,10 +132,14 @@ class RedisCache:
 
         try:
             result = bool(await self._redis.delete(key))
-            logger.bind(event="REDIS_CACHE|DELETE").debug("Cache delete", key=key[:50], deleted=result)
+            logger.bind(event="REDIS_CACHE|DELETE").debug(
+                "Cache delete", key=key[:50], deleted=result
+            )
             return result
         except Exception as e:
-            logger.bind(event="REDIS_CACHE|DELETE_ERROR").error("Redis delete error", key=key[:50], error=str(e))
+            logger.bind(event="REDIS_CACHE|DELETE_ERROR").error(
+                "Redis delete error", key=key[:50], error=str(e)
+            )
             return False
 
     async def exists(self, key: str) -> bool:
@@ -142,7 +158,9 @@ class RedisCache:
         try:
             return bool(await self._redis.exists(key))
         except Exception as e:
-            logger.bind(event="REDIS_CACHE|EXISTS_ERROR").error("Redis exists error", key=key[:50], error=str(e))
+            logger.bind(event="REDIS_CACHE|EXISTS_ERROR").error(
+                "Redis exists error", key=key[:50], error=str(e)
+            )
             return False
 
     async def get_or_set(
@@ -289,7 +307,9 @@ class RedisCache:
 
             return new_value
         except Exception as e:
-            logger.bind(event="REDIS_CACHE|INCREMENT_ERROR").error("Redis increment error", key=key[:50], error=str(e))
+            logger.bind(event="REDIS_CACHE|INCREMENT_ERROR").error(
+                "Redis increment error", key=key[:50], error=str(e)
+            )
             return 0
 
     async def increment_float(
@@ -320,7 +340,9 @@ class RedisCache:
 
             return new_value
         except Exception as e:
-            logger.bind(event="REDIS_CACHE|INCREMENT_FLOAT_ERROR").error("Redis increment_float error", key=key[:50], error=str(e))
+            logger.bind(event="REDIS_CACHE|INCREMENT_FLOAT_ERROR").error(
+                "Redis increment_float error", key=key[:50], error=str(e)
+            )
             return 0.0
 
 

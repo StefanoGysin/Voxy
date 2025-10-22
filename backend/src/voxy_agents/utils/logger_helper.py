@@ -4,10 +4,12 @@ Acelera migração com templates copiar/colar.
 
 Migração Loguru - Sprint 1: Infraestrutura Base
 """
-from loguru import logger
-from functools import wraps
-import time
+
 import inspect
+import time
+from functools import wraps
+
+from loguru import logger
 
 
 def create_component_logger(component_name: str):
@@ -47,6 +49,7 @@ def log_performance(event_prefix: str):
     Args:
         event_prefix: Prefixo para eventos (ex: "TRANSLATOR_AGENT", "VISION_AGENT")
     """
+
     def decorator(func):
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -62,18 +65,14 @@ def log_performance(event_prefix: str):
 
                 logger.bind(
                     event=f"{event_prefix}|PROCESSING_COMPLETE",
-                    duration_ms=elapsed * 1000
-                ).info(
-                    f"{func.__name__} concluído",
-                    processing_time=f"{elapsed:.2f}s"
-                )
+                    duration_ms=elapsed * 1000,
+                ).info(f"{func.__name__} concluído", processing_time=f"{elapsed:.2f}s")
 
                 return result
-            except Exception as e:
+            except Exception:
                 elapsed = time.perf_counter() - start
                 logger.bind(
-                    event=f"{event_prefix}|ERROR",
-                    duration_ms=elapsed * 1000
+                    event=f"{event_prefix}|ERROR", duration_ms=elapsed * 1000
                 ).exception(f"{func.__name__} falhou")
                 raise
 
@@ -89,14 +88,13 @@ def log_performance(event_prefix: str):
                 elapsed = time.perf_counter() - start
                 logger.bind(
                     event=f"{event_prefix}|PROCESSING_COMPLETE",
-                    duration_ms=elapsed * 1000
+                    duration_ms=elapsed * 1000,
                 ).info(f"{func.__name__} concluído", processing_time=f"{elapsed:.2f}s")
                 return result
-            except Exception as e:
+            except Exception:
                 elapsed = time.perf_counter() - start
                 logger.bind(
-                    event=f"{event_prefix}|ERROR",
-                    duration_ms=elapsed * 1000
+                    event=f"{event_prefix}|ERROR", duration_ms=elapsed * 1000
                 ).exception(f"{func.__name__} falhou")
                 raise
 
@@ -127,6 +125,7 @@ class LoggedComponent:
         component_name: Nome do componente (deve ser sobrescrito pela subclasse)
         logger: Logger instance bound com component_name
     """
+
     component_name: str = "UNKNOWN"
 
     def __init__(self):

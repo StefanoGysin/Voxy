@@ -21,7 +21,9 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
-def _format_item_hierarchical(item: dict, index: int, total: int, indent="   │  ") -> str:
+def _format_item_hierarchical(
+    item: dict, index: int, total: int, indent="   │  "
+) -> str:
     """
     Format an item (message/reasoning/function_call) in hierarchical visual format.
 
@@ -36,7 +38,7 @@ def _format_item_hierarchical(item: dict, index: int, total: int, indent="   │
     """
     item_type = item.get("type", "unknown")
     role = item.get("role", "")
-    is_last = (index == total - 1)
+    is_last = index == total - 1
     branch = "└─" if is_last else "├─"
     vertical = "   " if is_last else "│  "
 
@@ -118,7 +120,7 @@ def _format_item_hierarchical(item: dict, index: int, total: int, indent="   │
         lines.append(f"{indent}{vertical}└─ Status: {item['status']}")
     else:
         # Change last ├─ to └─
-        if lines[-1].endswith("chars omitted]\"") or ":" in lines[-1]:
+        if lines[-1].endswith('chars omitted]"') or ":" in lines[-1]:
             lines[-1] = lines[-1].replace("├─", "└─")
 
     return "\n".join(lines)
@@ -378,14 +380,14 @@ class SupabaseIntegration:
     async def delete_message(self, message_id: str, user_id: str) -> bool:
         """
         Delete a specific message.
-        
+
         Args:
             message_id: ID of the message to delete
             user_id: ID of the user (for authorization via session ownership)
-            
+
         Returns:
             bool: True if deleted successfully
-            
+
         Raises:
             ValueError: If message not found or user doesn't own it
         """
@@ -396,12 +398,12 @@ class SupabaseIntegration:
             .eq("id", message_id)
             .execute()
         )
-        
+
         if not message_result.data:
             raise ValueError("Message not found")
-            
+
         session_id = message_result.data[0]["session_id"]
-        
+
         # Verify user owns the session
         session_result = (
             self.client.table("chat_sessions")
@@ -410,18 +412,13 @@ class SupabaseIntegration:
             .eq("user_id", user_id)
             .execute()
         )
-        
+
         if not session_result.data:
             raise ValueError("Message not found or access denied")
-            
+
         # Delete the message
-        result = (
-            self.client.table("messages")
-            .delete()
-            .eq("id", message_id)
-            .execute()
-        )
-        
+        result = self.client.table("messages").delete().eq("id", message_id).execute()
+
         return bool(result.data)
 
     async def update_session_title(
@@ -629,8 +626,7 @@ class SupabaseSession:
             f"\n💾 [DATABASE] Adding Items to Session\n"
             f"   ├─ Session ID: {self.session_id}\n"
             f"   ├─ Total Items: {total_items}\n"
-            f"   │\n"
-            + "\n".join(formatted_items)
+            f"   │\n" + "\n".join(formatted_items)
         )
 
         await self._ensure_session_exists()

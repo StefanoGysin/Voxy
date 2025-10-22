@@ -19,19 +19,23 @@ Arquitetura:
 
 # ===== 0️⃣ PRÉ-CONFIG: Suprimir duplicação de logs LiteLLM =====
 import os
+
 os.environ["LITELLM_LOG"] = "ERROR"  # Só erros críticos (evita duplicação DEBUG/INFO)
 
 # ===== 1️⃣ PRIMEIRO: Configurar Loguru =====
 from .config.logger_config import configure_logger
+
 configure_logger()
 
 # ===== 2️⃣ SEGUNDO: Instalar InterceptHandler ANTES de outros imports =====
 from .config.logger_config import setup_stdlib_intercept
+
 setup_stdlib_intercept()
 
 # ===== 3️⃣ TERCEIRO: AGORA importar outros módulos =====
 import asyncio
 from typing import Any, Optional
+
 from loguru import logger
 
 from .core.subagents.calculator_agent import get_calculator_agent
@@ -59,7 +63,9 @@ class VOXYSystem:
 
     def _setup_subagents(self):
         """Register all subagents as tools for VOXY."""
-        logger.bind(event="STARTUP|SUBAGENTS").info("📦 Registering Subagents (4 agents + Vision)")
+        logger.bind(event="STARTUP|SUBAGENTS").info(
+            "📦 Registering Subagents (4 agents + Vision)"
+        )
 
         # Register translator subagent
         self.orchestrator.register_subagent(
@@ -95,6 +101,7 @@ class VOXYSystem:
 
         # Log Vision Agent (integrated in orchestrator)
         from .config.models_config import load_vision_config
+
         vision_config = load_vision_config()
 
         logger.bind(event="STARTUP|SUBAGENT_INIT").info(

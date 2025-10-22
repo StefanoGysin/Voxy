@@ -21,7 +21,6 @@ Uso Básico:
 """
 
 import logging
-import uuid
 from datetime import datetime
 from typing import Any, Optional
 
@@ -160,9 +159,7 @@ class SubagentTester:
         # Calculator Agent
         try:
             calc_config = load_calculator_config()
-            models["calculator"] = (
-                f"{calc_config.provider}/{calc_config.model_name}"
-            )
+            models["calculator"] = f"{calc_config.provider}/{calc_config.model_name}"
         except Exception as e:
             logger.warning(f"Failed to load calculator config: {e}")
             models["calculator"] = "gpt-4o-mini (fallback)"
@@ -178,9 +175,7 @@ class SubagentTester:
         # Weather Agent
         try:
             weather_config = load_weather_config()
-            models["weather"] = (
-                f"{weather_config.provider}/{weather_config.model_name}"
-            )
+            models["weather"] = f"{weather_config.provider}/{weather_config.model_name}"
         except Exception as e:
             logger.warning(f"Failed to load weather config: {e}")
             models["weather"] = "gpt-4o-mini (fallback)"
@@ -188,9 +183,7 @@ class SubagentTester:
         # Translator Agent
         try:
             trans_config = load_translator_config()
-            models["translator"] = (
-                f"{trans_config.provider}/{trans_config.model_name}"
-            )
+            models["translator"] = f"{trans_config.provider}/{trans_config.model_name}"
         except Exception as e:
             logger.warning(f"Failed to load translator config: {e}")
             models["translator"] = "gpt-4o-mini (fallback)"
@@ -238,9 +231,7 @@ class SubagentTester:
         # Validar nome do agente
         if agent_name not in self.AGENT_GETTERS:
             available = ", ".join(self.AGENT_GETTERS.keys())
-            raise ValueError(
-                f"Unknown agent: {agent_name}. Available: {available}"
-            )
+            raise ValueError(f"Unknown agent: {agent_name}. Available: {available}")
 
         logger.info(f"🧪 Testing {agent_name} agent...")
 
@@ -250,9 +241,7 @@ class SubagentTester:
                 return await self._test_vision_agent(input_data, start_time)
 
             # Rota padrão para outros agentes via SDK Runner
-            return await self._test_standard_agent(
-                agent_name, input_data, start_time
-            )
+            return await self._test_standard_agent(agent_name, input_data, start_time)
 
         except Exception as e:
             processing_time = (datetime.now() - start_time).total_seconds()
@@ -411,7 +400,9 @@ class SubagentTester:
 
         logger.info(
             f"✅ {agent_name} completed in {processing_time:.2f}s "
-            f"(cost: ${cost:.6f})" if cost else ""
+            f"(cost: ${cost:.6f})"
+            if cost
+            else ""
         )
 
         return TestResult(
@@ -540,12 +531,10 @@ class SubagentTester:
         if agent_name not in self.AGENT_GETTERS:
             raise ValueError(f"Unknown agent: {agent_name}")
 
-        info = {
+        info: dict[str, Any] = {
             "name": agent_name,
             "model": self.AGENT_MODELS[agent_name],
-            "test_strategy": (
-                "direct" if agent_name == "vision" else "sdk_runner"
-            ),
+            "test_strategy": ("direct" if agent_name == "vision" else "sdk_runner"),
         }
 
         # Adicionar informações específicas por agente
@@ -721,20 +710,16 @@ async def test_voxy_orchestrator(
 
     processing_time = (datetime.now() - start_time).total_seconds()
     agent_type = metadata.get("agent_type", "voxy")
-    error_message = metadata.get("error")
-    success = agent_type != "error" and not error_message
+    error_from_metadata: Optional[str] = metadata.get("error")
+    success = agent_type != "error" and not error_from_metadata
 
     tokens_used = metadata.get("tokens_used")
     cost = metadata.get("cost")
 
-    if cost is None and tokens_used:
-        prompt_tokens = tokens_used.get("prompt_tokens", 0) or 0
-        completion_tokens = tokens_used.get("completion_tokens", 0) or 0
-        cost = round(
-            (prompt_tokens / 1_000_000) * config.input_cost_per_million
-            + (completion_tokens / 1_000_000) * config.output_cost_per_million,
-            6,
-        )
+    # Note: Cost calculation requires cost_per_million fields which are not in OrchestratorModelConfig
+    # Rely on cost from metadata if available, otherwise set to 0.0
+    if cost is None:
+        cost = 0.0
 
     tools_used_raw = metadata.get("tools_used", []) or []
     if not isinstance(tools_used_raw, list):
@@ -777,8 +762,8 @@ async def test_voxy_orchestrator(
             load_calculator_config,
             load_corrector_config,
             load_translator_config,
-            load_weather_config,
             load_vision_config,
+            load_weather_config,
         )
 
         # Get the first subagent invoked (primary agent for this request)

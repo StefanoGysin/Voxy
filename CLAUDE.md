@@ -229,9 +229,13 @@ poetry run pytest --cov=src --cov-report=html
 # Testar subagente isolado
 poetry run python scripts/test_agent.py <agent_name> [args]
 
-# Linting
+# Quality Checks (executam automaticamente via pre-commit hooks)
 poetry run ruff check .
+poetry run black --check src/ tests/
 poetry run mypy src/
+
+# Pre-commit (validação completa antes de commit)
+poetry run pre-commit run --all-files  # Ver docs/PRE_COMMIT_GUIDE.md
 ```
 
 **Frontend**:
@@ -386,10 +390,11 @@ poetry run python scripts/test_agent.py --interactive
 - Next.js 15 App Router
 
 **Workflow**:
+- **Pre-commit hooks instalados**: Validação automática antes de cada commit (ver [`docs/PRE_COMMIT_GUIDE.md`](./docs/PRE_COMMIT_GUIDE.md))
 - Sempre execute typecheck após mudanças: `npm run typecheck` (frontend), `poetry run mypy src/` (backend)
 - Rode testes antes de commits: `poetry run pytest --cov=src`
 - Use sistema de testes isolados para debug rápido de subagentes
-- Commits devem passar pelo fluxo: lint → typecheck → tests → commit
+- Commits devem passar pelo fluxo: **pre-commit hooks** → lint → typecheck → tests → commit
 - Para features visuais, teste em todos os 6 breakpoints responsivos
 
 ## 🔄 Summary Instructions
@@ -403,6 +408,6 @@ Quando usar auto-compact, foque em:
 
 ---
 
-**Sistema multi-agente enterprise-ready com VOXY Orchestrator (Claude Sonnet 4.5) + 5 Subagentes SDK (OpenAI Agents + LiteLLM) + VOXY Web OS + Image Management System + API Architecture DRY-compliant completamente implementado e 100% operacional.**
+**Sistema multi-agente enterprise-ready com VOXY Orchestrator (Claude Sonnet 4.5) + 5 Subagentes SDK (OpenAI Agents + LiteLLM) + VOXY Web OS + Image Management System + API Architecture DRY-compliant + Pre-commit Quality Hooks completamente implementado e 100% operacional.**
 
-*Última atualização: 2025-10-09 - VOXY Orchestrator LiteLLM Migration (Claude Sonnet 4.5 default via OpenRouter)*
+*Última atualização: 2025-10-23 - Pre-commit Hooks System (Black + Ruff + Mypy auto-validation)*

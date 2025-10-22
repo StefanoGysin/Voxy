@@ -2,23 +2,23 @@
 Authentication routes for VOXY Agents.
 """
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
-import uuid
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import (
-    OAuth2PasswordRequestForm,
-    HTTPBearer,
     HTTPAuthorizationCredentials,
+    HTTPBearer,
+    OAuth2PasswordRequestForm,
 )
 from pydantic import BaseModel
 
 from ...config.settings import settings
+from ...core.auth_token_manager import token_manager
 from ..middleware.auth import User, get_current_user
 from ..middleware.supabase_client import get_supabase_client
-from ...core.auth_token_manager import token_manager
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -60,7 +60,7 @@ def create_custom_jwt_token(user_data: dict[str, Any]) -> tuple[str, str]:
     """
     now = datetime.now(timezone.utc)
     expiration = now + timedelta(seconds=settings.jwt_access_token_expire_seconds)
-    
+
     # Generate unique JWT ID for token tracking and blacklisting
     jti = str(uuid.uuid4())
 
@@ -119,12 +119,14 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         print(f"🔐 Created token with JTI: {jti} for user: {response.user.email}")
 
         # Store token info in Redis for tracking and blacklisting
-        expiration = datetime.now(timezone.utc) + timedelta(seconds=settings.jwt_access_token_expire_seconds)
+        expiration = datetime.now(timezone.utc) + timedelta(
+            seconds=settings.jwt_access_token_expire_seconds
+        )
         await token_manager.store_token_info(
             jti=jti,
             user_id=response.user.id,
             email=response.user.email,
-            expiration=expiration
+            expiration=expiration,
         )
 
         return LoginResponse(
@@ -179,12 +181,14 @@ async def signup(signup_data: SignupRequest):
             print(f"🔐 Signup token with JTI: {jti} for user: {response.user.email}")
 
             # Store token info in Redis for tracking
-            expiration = datetime.now(timezone.utc) + timedelta(seconds=settings.jwt_access_token_expire_seconds)
+            expiration = datetime.now(timezone.utc) + timedelta(
+                seconds=settings.jwt_access_token_expire_seconds
+            )
             await token_manager.store_token_info(
                 jti=jti,
                 user_id=response.user.id,
                 email=response.user.email,
-                expiration=expiration
+                expiration=expiration,
             )
 
             return LoginResponse(
@@ -207,7 +211,7 @@ async def signup(signup_data: SignupRequest):
 @router.post("/logout")
 async def logout(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Logout current user and blacklist the JWT token.
@@ -219,30 +223,33 @@ async def logout(
     try:
         # Extract JTI from token for blacklisting
         token = credentials.credentials
-        
+
         # Decode token to get JTI without full verification (already verified in get_current_user)
         try:
             import jwt as jwt_decode
+
             payload = jwt_decode.decode(token, options={"verify_signature": False})
             jti = payload.get("jti")
             exp = payload.get("exp")
-            
+
             if jti and exp:
                 # Convert exp to datetime
                 token_expiration = datetime.fromtimestamp(exp, tz=timezone.utc)
-                
+
                 # Blacklist the current token
                 blacklisted = await token_manager.blacklist_token(
-                    jti=jti,
-                    user_id=current_user.id,
-                    expiration=token_expiration
+                    jti=jti, user_id=current_user.id, expiration=token_expiration
                 )
-                
+
                 if blacklisted:
-                    print(f"🚫 Token {jti} blacklisted on logout for user: {current_user.email}")
+                    print(
+                        f"🚫 Token {jti} blacklisted on logout for user: {current_user.email}"
+                    )
                 else:
-                    print(f"⚠️ Failed to blacklist token {jti} for user: {current_user.email}")
-                    
+                    print(
+                        f"⚠️ Failed to blacklist token {jti} for user: {current_user.email}"
+                    )
+
         except Exception as token_error:
             print(f"⚠️ Could not extract JTI for blacklisting: {token_error}")
 
@@ -252,14 +259,10 @@ async def logout(
         except Exception as supabase_error:
             print(f"⚠️ Supabase logout error (non-critical): {supabase_error}")
 
-        return {
-            "message": "Successfully logged out",
-            "token_invalidated": True
-        }
+        return {"message": "Successfully logged out", "token_invalidated": True}
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail=f"Logout failed: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Logout failed: {str(e)}"
         )
 
 

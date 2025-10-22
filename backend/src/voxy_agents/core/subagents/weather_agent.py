@@ -7,9 +7,8 @@ Usa APIs externas para dados em tempo real.
 Migração Loguru - Sprint 5
 """
 
-from loguru import logger
-
 from agents import Agent, ModelSettings, function_tool
+from loguru import logger
 
 from ...config.models_config import load_weather_config
 from ...utils.llm_factory import create_litellm_model
@@ -80,6 +79,7 @@ class WeatherAgent:
     def __init__(self):
         """Initialize the weather subagent with configurable LiteLLM model."""
         import time
+
         start_time = time.perf_counter()
 
         config = load_weather_config()

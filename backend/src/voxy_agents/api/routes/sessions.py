@@ -4,11 +4,10 @@ Consolidated with historical chat_history.py functionality.
 """
 
 import logging
-from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ...core.database.models import SessionDetail, SessionSummary
 from ...core.database.supabase_integration import SupabaseIntegration

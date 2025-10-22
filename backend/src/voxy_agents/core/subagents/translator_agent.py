@@ -7,9 +7,8 @@ Implementa as decisões do CREATIVE MODE para otimização multi-modelo.
 Migração Loguru - Sprint 5
 """
 
-from loguru import logger
-
 from agents import Agent, ModelSettings
+from loguru import logger
 
 from ...config.models_config import load_translator_config
 from ...utils.llm_factory import create_litellm_model
@@ -29,6 +28,7 @@ class TranslatorAgent:
     def __init__(self):
         """Initialize the translator subagent with configurable LiteLLM model."""
         import time
+
         start_time = time.perf_counter()
 
         config = load_translator_config()

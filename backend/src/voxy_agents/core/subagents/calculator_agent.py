@@ -8,9 +8,8 @@ Agora configurável via LiteLLM para suporte a múltiplos providers (OpenRouter,
 Migração Loguru - Sprint 5
 """
 
-from loguru import logger
-
 from agents import Agent, ModelSettings
+from loguru import logger
 
 from ...config.models_config import load_calculator_config
 from ...utils.llm_factory import create_litellm_model
@@ -44,6 +43,7 @@ class CalculatorAgent:
             ValueError: If required API key is missing or config is invalid
         """
         import time
+
         start_time = time.perf_counter()
 
         # Load configuration from environment variables

@@ -4,13 +4,15 @@ Baseado na documentação oficial: https://loguru.readthedocs.io/
 
 Migração Loguru - Sprint 2: Implementação completa + Correções e Melhorias
 """
-import sys
-import os
-import logging
+
 import inspect
+import logging
+import os
+import sys
 from pathlib import Path
-from loguru import logger
+
 from dotenv import load_dotenv
+from loguru import logger
 
 # Load .env file BEFORE reading any environment variables
 # override=True ensures .env values take precedence over shell exports
@@ -60,12 +62,8 @@ class InterceptHandler(logging.Handler):
         escaped_message = message.replace("{", "{{").replace("}", "}}")
 
         logger.bind(
-            event="GENERAL",
-            source=record.name  # uvicorn, litellm, httpx, etc.
-        ).opt(
-            depth=depth,
-            exception=record.exc_info
-        ).log(level, escaped_message)
+            event="GENERAL", source=record.name  # uvicorn, litellm, httpx, etc.
+        ).opt(depth=depth, exception=record.exc_info).log(level, escaped_message)
 
 
 def setup_stdlib_intercept():
@@ -78,17 +76,17 @@ def setup_stdlib_intercept():
     # Interceptar loggers específicos de terceiros
     # Correção: Adicionar 'LiteLLM', 'httpx', 'httpcore', 'hpack' para reduzir ruído HTTP
     intercepted_loggers = [
-        'uvicorn',
-        'uvicorn.error',
-        'uvicorn.access',
-        'fastapi',
-        'litellm',
-        'LiteLLM',         # LiteLLM com L maiúsculo
-        'LiteLLM Proxy',   # LiteLLM Proxy warnings (backoff dependency)
-        'httpx',
-        'httpcore',
-        'hpack',           # HTTP/2 header compression (muito verboso em DEBUG)
-        'hpack.hpack'
+        "uvicorn",
+        "uvicorn.error",
+        "uvicorn.access",
+        "fastapi",
+        "litellm",
+        "LiteLLM",  # LiteLLM com L maiúsculo
+        "LiteLLM Proxy",  # LiteLLM Proxy warnings (backoff dependency)
+        "httpx",
+        "httpcore",
+        "hpack",  # HTTP/2 header compression (muito verboso em DEBUG)
+        "hpack.hpack",
     ]
 
     for logger_name in intercepted_loggers:
@@ -97,7 +95,15 @@ def setup_stdlib_intercept():
         _logger.propagate = False
 
         # Reduzir ruído: loggers muito verbosos em DEBUG
-        if logger_name in ('httpx', 'httpcore', 'litellm', 'LiteLLM', 'LiteLLM Proxy', 'hpack', 'hpack.hpack'):
+        if logger_name in (
+            "httpx",
+            "httpcore",
+            "litellm",
+            "LiteLLM",
+            "LiteLLM Proxy",
+            "hpack",
+            "hpack.hpack",
+        ):
             _logger.setLevel(logging.ERROR)  # Só erros críticos
 
 
@@ -197,7 +203,7 @@ def configure_logger():
             colorize=True,
             enqueue=False,  # Console não precisa de enqueue
             diagnose=True,  # Tracebacks ricos em dev
-            filter=mask_sensitive_data
+            filter=mask_sensitive_data,
         )
 
     # SINK 2: Arquivo principal (INFO em produção, log_level em dev)
@@ -211,7 +217,7 @@ def configure_logger():
         retention=5,
         compression="zip",
         enqueue=True,  # CRÍTICO para async safety em produção
-        filter=mask_sensitive_data
+        filter=mask_sensitive_data,
     )
 
     # SINK 3: Erros com diagnóstico (diagnose apenas em dev)
@@ -225,7 +231,7 @@ def configure_logger():
         enqueue=True,
         backtrace=True,
         diagnose=env == "development",  # Apenas em dev para evitar expor info sensível
-        filter=mask_sensitive_data
+        filter=mask_sensitive_data,
     )
 
     # SINK 4: Performance (isolado) - usa formatador custom
@@ -233,11 +239,12 @@ def configure_logger():
         log_dir / "voxy_performance.log",
         format=_format_performance,
         level="DEBUG",
-        filter=lambda record: "duration_ms" in record["extra"] or "cost" in record["extra"],
+        filter=lambda record: "duration_ms" in record["extra"]
+        or "cost" in record["extra"],
         rotation="50 MB",
         retention=10,
         compression="zip",
-        enqueue=True
+        enqueue=True,
     )
 
     # SINK 5: Audit trail (90 dias de retenção)
@@ -251,7 +258,7 @@ def configure_logger():
         compression="zip",
         enqueue=True,
         backtrace=False,  # Não expor stack traces em audit
-        diagnose=False
+        diagnose=False,
     )
 
     # SINK 6: JSON estruturado (opcional)
@@ -265,7 +272,7 @@ def configure_logger():
             compression="zip",
             serialize=True,
             enqueue=True,
-            filter=mask_sensitive_data
+            filter=mask_sensitive_data,
         )
 
     # SINK 7: Sentry (se configurado)
@@ -275,6 +282,7 @@ def configure_logger():
     if sentry_dsn:
         try:
             import sentry_sdk
+
             from .sentry_sink import sentry_sink
 
             sentry_sdk.init(dsn=sentry_dsn, environment=env)
@@ -285,8 +293,5 @@ def configure_logger():
 
     # Log de inicialização (correção: metadados agora aparecem via bind)
     logger.bind(
-        event="LOGGER_INIT",
-        env=env,
-        log_level=log_level,
-        sinks=sinks_count
+        event="LOGGER_INIT", env=env, log_level=log_level, sinks=sinks_count
     ).info("Loguru configurado com sucesso")
