@@ -706,10 +706,9 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             else:
                 import uuid
 
-                # Generate a deterministic UUID for this user
-                actual_session_id = str(
-                    uuid.uuid5(uuid.NAMESPACE_DNS, f"voxy.session.{user_id}")
-                )
+                # Generate a new random UUID for each session
+                # This ensures each CLI test or chat creates a distinct session
+                actual_session_id = str(uuid.uuid4())
 
             # Create SupabaseSession for automatic context management
             session = SupabaseSession(session_id=actual_session_id, user_id=user_id)

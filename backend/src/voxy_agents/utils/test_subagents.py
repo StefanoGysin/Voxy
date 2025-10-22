@@ -21,6 +21,7 @@ Uso Básico:
 """
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Any, Optional
 
@@ -611,7 +612,7 @@ async def test_voxy_orchestrator(
     message: str,
     *,
     image_url: Optional[str] = None,
-    user_id: str = "test_user",
+    user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     bypass_cache: bool = False,
     bypass_rate_limit: bool = False,
@@ -623,7 +624,7 @@ async def test_voxy_orchestrator(
     Args:
         message: Texto a ser enviado ao orquestrador
         image_url: URL de imagem opcional (ativa fluxo multimodal)
-        user_id: Identificador do usuário (default: test_user)
+        user_id: UUID do usuário (default: None, usa UUID do usuário de desenvolvimento)
         session_id: Session ID reutilizado ou None para gerar automaticamente
         bypass_cache: Se True, limpa caches locais (visão) antes do teste
         bypass_rate_limit: Se True, reinicia contadores de rate limit da visão
@@ -631,10 +632,21 @@ async def test_voxy_orchestrator(
 
     Returns:
         TestResult com sucesso, resposta e metadados (tokens, custo, ferramentas utilizadas)
+
+    Note:
+        O user_id padrão é do usuário de desenvolvimento (stefanogysin@hotmail.com),
+        garantindo que CLI tests funcionem com o mesmo sistema de auth do Supabase
+        que o frontend usa. Isso permite persistência correta de sessions e messages.
     """
 
     config = load_orchestrator_config()
     start_time = datetime.now()
+
+    # Use development user UUID if user_id not provided
+    # This ensures CLI tests work with the same Supabase auth system as frontend
+    if user_id is None:
+        user_id = "4a82fdef-cc14-4471-b9b9-9f1238bdd222"  # stefanogysin@hotmail.com (dev user)
+        logger.info(f"Using default dev user_id: {user_id[:8]}...")
 
     vision_agent: Optional[VisionAgent] = None
     if image_url or bypass_cache or bypass_rate_limit:
@@ -756,7 +768,38 @@ async def test_voxy_orchestrator(
 
     raw_metadata = metadata if include_tools_metadata else None
 
+    # Determine the actual model used based on which subagent was invoked
     metadata_model = orchestrator_model or config.get_litellm_model_path()
+
+    # If a subagent was invoked, use its model instead of orchestrator's
+    if subagents_invoked and len(subagents_invoked) > 0:
+        from ..config.models_config import (
+            load_calculator_config,
+            load_corrector_config,
+            load_translator_config,
+            load_weather_config,
+            load_vision_config,
+        )
+
+        # Get the first subagent invoked (primary agent for this request)
+        primary_subagent = subagents_invoked[0]
+
+        # Load the appropriate config
+        subagent_configs = {
+            "calculator": load_calculator_config,
+            "corrector": load_corrector_config,
+            "translator": load_translator_config,
+            "weather": load_weather_config,
+            "vision": load_vision_config,
+        }
+
+        if primary_subagent in subagent_configs:
+            try:
+                subagent_config = subagent_configs[primary_subagent]()
+                metadata_model = subagent_config.get_litellm_model_path()
+            except Exception:
+                # Fallback to orchestrator model if config loading fails
+                pass
 
     test_metadata = TestMetadata(
         processing_time=processing_time,

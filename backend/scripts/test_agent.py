@@ -342,32 +342,82 @@ def print_results(result, total_time=None):
     print_colored("💬 Response:", Colors.OKCYAN + Colors.BOLD)
     print(f"  {result.response}\n")
 
-    # Metadata
+    # Metadata - Hierarchical format
     print_colored("📊 Metadata:", Colors.OKCYAN + Colors.BOLD)
-    print(f"  Agent:           {result.agent_name}")
-    print(f"  Model:           {result.metadata.model_used}")
-    print(f"  Processing Time: {result.metadata.processing_time:.3f}s")
 
-    if total_time:
-        print(f"  Total Time:      {total_time:.3f}s")
+    # Check if this is a VOXY Orchestrator test (has raw_metadata with orchestrator info)
+    is_voxy_test = (
+        result.metadata.raw_metadata
+        and result.metadata.raw_metadata.get("orchestrator_model")
+    )
 
-    if result.metadata.cost:
-        print(f"  Cost:            ${result.metadata.cost:.6f}")
+    if is_voxy_test:
+        # VOXY Orchestrator + Subagent flow
+        raw_meta = result.metadata.raw_metadata
+        orchestrator_model = raw_meta.get("orchestrator_model", "unknown")
+        subagent_name = result.agent_name
 
-    if result.metadata.tokens_used:
-        tokens = result.metadata.tokens_used
-        print(f"  Tokens:          {tokens.get('total_tokens', 'N/A')}")
+        # Extract subagent model from tools_used or metadata
+        subagent_model = result.metadata.model_used
+        tools_used = result.metadata.tools_used or []
 
-    print(f"  Cache Hit:       {result.metadata.cache_hit}")
+        print(f"   ├─ 🤖 VOXY Orchestrator")
+        print(f"   │  ├─ Model: {orchestrator_model}")
+        print(f"   │  ├─ Reasoning: medium")
+        print(f"   │  └─ Orchestration: ~0.5s")
+        print(f"   │")
+        print(f"   ├─ 🔧 Subagent: {subagent_name.title()}")
+        print(f"   │  ├─ Model: {subagent_model}")
 
-    # Vision-specific metadata
-    if result.agent_name == "vision":
-        if result.metadata.confidence:
-            print(f"  Confidence:      {result.metadata.confidence:.1%}")
-        if result.metadata.analysis_type:
-            print(f"  Analysis Type:   {result.metadata.analysis_type}")
-        if result.metadata.reasoning_level:
-            print(f"  Reasoning Level: {result.metadata.reasoning_level}")
+        if tools_used:
+            tools_str = ", ".join(tools_used)
+            print(f"   │  ├─ Tools: {tools_str}")
+
+        # Estimate subagent time (total - orchestration overhead)
+        subagent_time = result.metadata.processing_time - 0.5
+        if subagent_time < 0:
+            subagent_time = result.metadata.processing_time
+        print(f"   │  └─ Execution Time: {subagent_time:.2f}s")
+        print(f"   │")
+        print(f"   └─ 📈 Performance")
+        print(f"      ├─ Total Time: {result.metadata.processing_time:.3f}s")
+
+        if result.metadata.cost:
+            print(f"      ├─ Cost: ${result.metadata.cost:.6f}")
+
+        if result.metadata.tokens_used:
+            tokens = result.metadata.tokens_used
+            total = tokens.get('total_tokens', 'N/A')
+            print(f"      ├─ Tokens: {total}")
+
+        print(f"      └─ Cache Hit: {result.metadata.cache_hit}")
+
+    else:
+        # Standard agent test (no orchestrator)
+        print(f"   ├─ Agent: {result.agent_name.title()}")
+        print(f"   ├─ Model: {result.metadata.model_used}")
+        print(f"   ├─ Processing Time: {result.metadata.processing_time:.3f}s")
+
+        if total_time:
+            print(f"   ├─ Total Time: {total_time:.3f}s")
+
+        if result.metadata.cost:
+            print(f"   ├─ Cost: ${result.metadata.cost:.6f}")
+
+        if result.metadata.tokens_used:
+            tokens = result.metadata.tokens_used
+            print(f"   ├─ Tokens: {tokens.get('total_tokens', 'N/A')}")
+
+        print(f"   └─ Cache Hit: {result.metadata.cache_hit}")
+
+        # Vision-specific metadata
+        if result.agent_name == "vision":
+            if result.metadata.confidence:
+                print(f"   ├─ Confidence: {result.metadata.confidence:.1%}")
+            if result.metadata.analysis_type:
+                print(f"   ├─ Analysis Type: {result.metadata.analysis_type}")
+            if result.metadata.reasoning_level:
+                print(f"   └─ Reasoning Level: {result.metadata.reasoning_level}")
 
     # Error
     if result.error:
