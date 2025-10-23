@@ -14,6 +14,7 @@ Migração Loguru - Sprint 4 + Sprint Multi-Agent Hierarchical Logging
 """
 
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
@@ -170,7 +171,7 @@ class VoxyOrchestrator:
             query: str = "Analise esta imagem",
         ) -> str:  # pragma: no cover
             """
-            Análise avançada de imagens usando GPT-5 multimodal.
+            Advanced image analysis using configured vision model.
 
             Args:
                 image_url: URL da imagem para análise
@@ -255,7 +256,7 @@ class VoxyOrchestrator:
         - correct_text: Para correção ortográfica e gramatical (capacidade nativa)
         - get_weather: Para informações meteorológicas (via APIs)
         - calculate: Para cálculos matemáticos (capacidade nativa)
-        - analyze_image: Para análise avançada de imagens usando GPT-5 multimodal
+        - analyze_image: Para análise avançada de imagens usando vision model configurado
         - web_search: Para busca na web (quando necessário)
 
         INSTRUÇÕES ESPECIAIS PARA ANÁLISE DE IMAGEM:
@@ -266,7 +267,7 @@ class VoxyOrchestrator:
         - Exemplo: Se a mensagem for "que emoji é este?\n\n[IMAGEM PARA ANÁLISE]: https://...",
           use analyze_image(image_url="https://...", query="que emoji é este?") UMA ÚNICA VEZ
         - IMPORTANTE: Após receber o resultado da análise, responda diretamente sem chamar a função novamente
-        - O Vision Agent usa GPT-5 multimodal para análise avançada
+        - O Vision Agent usa multimodal AI para análise avançada de imagens
 
         OTIMIZAÇÃO (Dynamic Complexity Scoring):
         - Use subagentes especializados para tarefas específicas (mais eficiente)
@@ -387,7 +388,7 @@ class VoxyOrchestrator:
         """
         Lightweight post-processing to convert technical analysis into conversational response.
 
-        Uses GPT-4o-mini for fast conversationalization (adds ~1-2s).
+        Uses lightweight model for fast conversationalization (adds ~1-2s).
         Avoids Runner.run() overhead to maintain performance.
 
         Args:
@@ -425,9 +426,9 @@ REGRAS:
 
 Responda APENAS com a versão conversacional, sem introduções ou conclusões extras."""
 
-            # Lightweight GPT-4o-mini call (no SDK overhead)
+            # Lightweight conversationalization model call (no SDK overhead)
             response = await self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=os.getenv("CONVERSATIONALIZATION_MODEL", "gpt-4o-mini"),
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=500,
                 temperature=0.7,  # More creative for conversational tone
@@ -693,7 +694,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             message: User's message
             user_id: User identifier for session management
             session_id: Optional session ID (will be generated if not provided)
-            image_url: Optional image URL for vision analysis with GPT-5
+            image_url: Optional image URL for vision analysis
 
         Returns:
             Tuple of (response_text, metadata) where metadata includes agent_type, tools_used, and vision metadata
@@ -737,7 +738,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # Create SupabaseSession for automatic context management
             session = SupabaseSession(session_id=actual_session_id, user_id=user_id)
 
-            # 🖼️ VISION AGENT - GPT-5 multimodal analysis with lightweight post-processing
+            # 🖼️ VISION AGENT - Vision model analysis with lightweight post-processing
             if image_url and self._is_vision_request(message):
                 logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1").info(
                     "PATH 1: Vision bypass with lightweight post-processing"
@@ -770,7 +771,7 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                         f"   └─ 💰 Cost: ${vision_result.metadata.get('cost', 0):.4f}"
                     )
 
-                    # Lightweight post-processing with GPT-4o-mini (adds ~1-2s)
+                    # Lightweight post-processing with conversationalization model (adds ~1-2s)
                     # Feature flag: Can be disabled via ENABLE_VISION_POSTPROCESSING=false
                     if settings.enable_vision_postprocessing:
                         conversational_response = (

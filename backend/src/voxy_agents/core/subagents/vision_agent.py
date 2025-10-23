@@ -42,7 +42,7 @@ class VisionAnalysisResult(BaseModel):
     analysis: str  # Análise técnica da imagem (não resposta final ao usuário)
     confidence: float  # Nível de confiança (0.0 - 1.0)
     metadata: dict[str, Any]  # model_used, cost, processing_time, etc.
-    raw_response: Optional[str] = None  # Resposta bruta GPT-5/GPT-4o
+    raw_response: Optional[str] = None  # Raw model response
     error: Optional[str] = None
 
 
@@ -110,7 +110,7 @@ class VisionAgent:
         specific_questions: Optional[list[str]] = None,
     ) -> VisionAnalysisResult:
         """
-        Main image analysis method - direct GPT-5 without SDK overhead.
+        Main image analysis method - direct vision model analysis.
 
         Args:
             image_url: URL or base64 data of the image
@@ -442,9 +442,9 @@ class VisionAgent:
             )
 
     def _get_system_instructions(self) -> str:
-        """Get comprehensive system instructions for GPT-5."""
+        """Get comprehensive system instructions for vision model."""
         return """
-        Você é um especialista em análise visual avançada usando GPT-5 multimodal.
+        Você é um especialista em análise visual avançada usando multimodal vision AI.
 
         CAPACIDADES:
         - Análise detalhada de imagens com alta precisão
@@ -582,7 +582,7 @@ class VisionAgent:
                 input_tokens = 200  # prompt + image encoding (~200 tokens)
                 output_tokens = len(result.final_output.split()) * 1.3
 
-            # Pricing estimation by model (2025 rates)
+            # Pricing estimation by model (model-specific rates, 2025)
             if "gpt-4o" in self.config.model_name.lower():
                 input_cost = (input_tokens / 1000) * 0.0025
                 output_cost = (output_tokens / 1000) * 0.01
@@ -685,7 +685,7 @@ class VisionAgent:
 
     def get_tool_description(self) -> str:
         """Get tool description for orchestrator."""
-        return "Análise avançada de imagens usando GPT-5 multimodal"
+        return "Análise avançada de imagens usando vision model configurado"
 
     def process_tool_call(
         self,

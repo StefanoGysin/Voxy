@@ -4,7 +4,6 @@ Consolidated and secured - no unauthenticated endpoints.
 """
 
 import hashlib
-import logging
 from datetime import datetime
 from typing import Optional
 
@@ -14,6 +13,7 @@ from fastapi import (
     HTTPException,
     status,
 )
+from loguru import logger
 from pydantic import BaseModel
 
 from ...core.cache.redis_cache import get_redis_cache
@@ -22,8 +22,6 @@ from ...core.utils.id_generator import generate_unique_request_id
 from ...main import get_voxy_system
 from ..middleware.auth import User, get_current_active_user
 from ..middleware.vision_rate_limiter import get_vision_rate_limiter
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -153,7 +151,15 @@ async def chat_with_voxy(
                 vision_metadata = metadata.get("vision_metadata")
                 cached = False
             except Exception as voxy_error:
-                logger.error(f"❌ VOXY system error: {voxy_error}")
+                logger.bind(event="CHAT_API|ERROR").error(
+                    "VOXY system error",
+                    error_type=type(voxy_error).__name__,
+                    error_msg=str(voxy_error),
+                    user_id=current_user.id,
+                    session_id=session_id,
+                    has_vision=bool(request.image_url),
+                    exc_info=True,
+                )
                 response_text = f"Desculpe, ocorreu um erro interno: {str(voxy_error)}"
                 agent_type = "error"
                 vision_metadata = None

@@ -3,11 +3,11 @@ Global message management and search routes for VOXY Agents.
 Provides cross-session message operations with authentication.
 """
 
-import logging
 from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from loguru import logger
 from pydantic import BaseModel
 
 from ...core.database.supabase_integration import SupabaseIntegration
@@ -19,8 +19,6 @@ from ..models import (
     SearchResponse,
     SearchResultItem,
 )
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 
@@ -134,7 +132,15 @@ async def get_user_messages(
         )
 
     except Exception as e:
-        logger.error(f"Error getting user messages: {e}")
+        logger.bind(event="MESSAGES_API|ERROR").error(
+            "Error getting user messages",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            user_id=current_user.id,
+            page=page,
+            per_page=per_page,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve messages: {str(e)}",
@@ -305,7 +311,15 @@ async def advanced_search_messages(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in advanced search: {e}")
+        logger.bind(event="MESSAGES_API|ERROR").error(
+            "Error in advanced search",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            user_id=current_user.id,
+            query=request.query,
+            limit=request.limit,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}",
@@ -393,7 +407,13 @@ async def get_message_stats(
         )
 
     except Exception as e:
-        logger.error(f"Error getting message stats: {e}")
+        logger.bind(event="MESSAGES_API|ERROR").error(
+            "Error getting message stats",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            user_id=current_user.id,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get statistics: {str(e)}",
@@ -419,8 +439,10 @@ async def delete_message(
         )
 
         if success:
-            logger.info(
-                f"Successfully deleted message {message_id} for user {current_user.id}"
+            logger.bind(event="MESSAGES_API|DELETE").info(
+                "Successfully deleted message",
+                message_id=message_id,
+                user_id=current_user.id,
             )
             return {
                 "message": "Message deleted successfully",
@@ -434,7 +456,13 @@ async def delete_message(
 
     except ValueError as e:
         # Handle message not found or access denied
-        logger.warning(f"Message deletion failed for user {current_user.id}: {e}")
+        logger.bind(event="MESSAGES_API|DELETE").warning(
+            "Message deletion failed",
+            error_type="ValueError",
+            error_msg=str(e),
+            message_id=message_id,
+            user_id=current_user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
@@ -442,7 +470,14 @@ async def delete_message(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting message: {e}")
+        logger.bind(event="MESSAGES_API|ERROR").error(
+            "Error deleting message",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            message_id=message_id,
+            user_id=current_user.id,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete message: {str(e)}",
