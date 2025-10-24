@@ -426,9 +426,17 @@ REGRAS:
 
 Responda APENAS com a versão conversacional, sem introduções ou conclusões extras."""
 
+            # Get conversationalization model from environment
+            conversationalization_model = os.getenv("CONVERSATIONALIZATION_MODEL")
+            if not conversationalization_model:
+                raise ValueError(
+                    "CONVERSATIONALIZATION_MODEL not configured. Please set in .env file. "
+                    "See .env.example for configuration options."
+                )
+
             # Lightweight conversationalization model call (no SDK overhead)
             response = await self.openai_client.chat.completions.create(
-                model=os.getenv("CONVERSATIONALIZATION_MODEL", "gpt-4o-mini"),
+                model=conversationalization_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=500,
                 temperature=0.7,  # More creative for conversational tone

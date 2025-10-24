@@ -70,7 +70,7 @@ class WeatherAgent:
     Subagente meteorológico com acesso a APIs de clima.
 
     Características:
-    - Usa gpt-4o-mini para processamento eficiente
+    - Usa LLM configurável para processamento eficiente (configured in .env - see .env.example)
     - Integração com OpenWeatherMap API
     - Formatação inteligente de dados meteorológicos
     - Suporte a múltiplas cidades e países

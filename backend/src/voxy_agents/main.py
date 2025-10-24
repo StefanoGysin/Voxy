@@ -5,11 +5,11 @@ Sistema multi-agente completo usando OpenAI Agents SDK.
 Implementa orquestração inteligente com Vision Agent integrado.
 
 Arquitetura:
-- VOXY (agente principal) com GPT-4o
+- VOXY (agente principal) com LLM configurável (ORCHESTRATOR_MODEL)
 - 4 subagentes especializados como tools
 - Vision Agent integrado diretamente no orquestrador
 - Sistema de sessões para contexto persistente
-- Análise avançada de imagens com GPT-5 multimodal
+- Análise avançada de imagens com Vision model configurável (VISION_MODEL)
 
 ⚠️ ORDEM DE IMPORTS É CRÍTICA PARA LOGGING
 1️⃣ Configurar Loguru
@@ -126,7 +126,7 @@ class VOXYSystem:
             message: User's message
             user_id: User identifier for session management
             session_id: Optional session ID for conversation context
-            image_url: Optional image URL for vision analysis with GPT-5
+            image_url: Optional image URL for vision analysis with Vision model
 
         Returns:
             Tuple of (response_text, metadata)

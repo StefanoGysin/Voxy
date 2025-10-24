@@ -116,7 +116,7 @@ def load_calculator_config() -> SubagentModelConfig:
 
     Environment Variables:
         CALCULATOR_PROVIDER: Provider name (default: "openrouter")
-        CALCULATOR_MODEL: Model name (default: "x-ai/grok-code-fast-1")
+        CALCULATOR_MODEL: Model name (configured in .env - see .env.example)
         OPENROUTER_API_KEY: OpenRouter API key (required if provider=openrouter)
         OPENAI_API_KEY: OpenAI API key (required if provider=openai)
         CALCULATOR_MAX_TOKENS: Max tokens (default: 2000)
@@ -128,10 +128,16 @@ def load_calculator_config() -> SubagentModelConfig:
         SubagentModelConfig: Calculator agent configuration
 
     Raises:
-        ValueError: If required API key is missing
+        ValueError: If required configuration is missing
     """
     provider = os.getenv("CALCULATOR_PROVIDER", "openrouter")
-    model_name = os.getenv("CALCULATOR_MODEL", "x-ai/grok-code-fast-1")
+    model_name = os.getenv("CALCULATOR_MODEL")
+
+    if not model_name:
+        raise ValueError(
+            "CALCULATOR_MODEL not configured. Please set in .env file. "
+            "See .env.example for configuration options."
+        )
 
     # Determine API key based on provider
     if provider == "openrouter":
@@ -181,15 +187,24 @@ def load_corrector_config() -> SubagentModelConfig:
 
     Environment Variables:
         CORRECTOR_PROVIDER: Provider name (default: "openai")
-        CORRECTOR_MODEL: Model name (default: "gpt-4o-mini")
+        CORRECTOR_MODEL: Model name (configured in .env - see .env.example)
         CORRECTOR_MAX_TOKENS: Max tokens (default: 2000)
         CORRECTOR_TEMPERATURE: Temperature (default: 0.1)
 
     Returns:
         SubagentModelConfig: Corrector agent configuration
+
+    Raises:
+        ValueError: If required configuration is missing
     """
     provider = os.getenv("CORRECTOR_PROVIDER", "openai")
-    model_name = os.getenv("CORRECTOR_MODEL", "gpt-4o-mini")
+    model_name = os.getenv("CORRECTOR_MODEL")
+
+    if not model_name:
+        raise ValueError(
+            "CORRECTOR_MODEL not configured. Please set in .env file. "
+            "See .env.example for configuration options."
+        )
 
     # Determine API key based on provider
     if provider == "openrouter":
@@ -218,15 +233,24 @@ def load_weather_config() -> SubagentModelConfig:
 
     Environment Variables:
         WEATHER_PROVIDER: Provider name (default: "openai")
-        WEATHER_MODEL: Model name (default: "gpt-4o-mini")
+        WEATHER_MODEL: Model name (configured in .env - see .env.example)
         WEATHER_MAX_TOKENS: Max tokens (default: 2000)
         WEATHER_TEMPERATURE: Temperature (default: 0.1)
 
     Returns:
         SubagentModelConfig: Weather agent configuration
+
+    Raises:
+        ValueError: If required configuration is missing
     """
     provider = os.getenv("WEATHER_PROVIDER", "openai")
-    model_name = os.getenv("WEATHER_MODEL", "gpt-4o-mini")
+    model_name = os.getenv("WEATHER_MODEL")
+
+    if not model_name:
+        raise ValueError(
+            "WEATHER_MODEL not configured. Please set in .env file. "
+            "See .env.example for configuration options."
+        )
 
     # Determine API key based on provider
     if provider == "openrouter":
@@ -255,7 +279,7 @@ def load_translator_config() -> SubagentModelConfig:
 
     Environment Variables:
         TRANSLATOR_PROVIDER: Provider name (default: "openrouter")
-        TRANSLATOR_MODEL: Model name (default: "anthropic/claude-3-opus")
+        TRANSLATOR_MODEL: Model name (configured in .env - see .env.example)
         OPENROUTER_API_KEY: OpenRouter API key (required if provider=openrouter)
         OPENAI_API_KEY: OpenAI API key (required if provider=openai)
         TRANSLATOR_MAX_TOKENS: Max tokens (default: 2000)
@@ -266,10 +290,16 @@ def load_translator_config() -> SubagentModelConfig:
         SubagentModelConfig: Translator agent configuration
 
     Raises:
-        ValueError: If required API key is missing
+        ValueError: If required configuration is missing
     """
     provider = os.getenv("TRANSLATOR_PROVIDER", "openrouter")
-    model_name = os.getenv("TRANSLATOR_MODEL", "anthropic/claude-3-opus")
+    model_name = os.getenv("TRANSLATOR_MODEL")
+
+    if not model_name:
+        raise ValueError(
+            "TRANSLATOR_MODEL not configured. Please set in .env file. "
+            "See .env.example for configuration options."
+        )
 
     # Determine API key based on provider
     if provider == "openrouter":
@@ -329,7 +359,7 @@ def load_vision_config() -> VisionModelConfig:
 
     Environment Variables:
         VISION_PROVIDER: Provider name (default: "openrouter")
-        VISION_MODEL: Model name (default: "openai/gpt-4o")
+        VISION_MODEL: Model name (configured in .env - see .env.example)
         OPENROUTER_API_KEY: OpenRouter API key (required if provider=openrouter)
         OPENAI_API_KEY: OpenAI API key (required if provider=openai)
         VISION_MAX_TOKENS: Max tokens (default: 2000)
@@ -342,10 +372,16 @@ def load_vision_config() -> VisionModelConfig:
         VisionModelConfig: Vision agent configuration
 
     Raises:
-        ValueError: If required API key is missing
+        ValueError: If required configuration is missing
     """
     provider = os.getenv("VISION_PROVIDER", "openrouter")
-    model_name = os.getenv("VISION_MODEL", "openai/gpt-4o")
+    model_name = os.getenv("VISION_MODEL")
+
+    if not model_name:
+        raise ValueError(
+            "VISION_MODEL not configured. Please set in .env file. "
+            "See .env.example for configuration options."
+        )
 
     # Determine API key based on provider
     if provider == "openrouter":
@@ -411,7 +447,7 @@ def load_orchestrator_config() -> OrchestratorModelConfig:
 
     Environment Variables:
         ORCHESTRATOR_PROVIDER: Provider name (default: "openrouter")
-        ORCHESTRATOR_MODEL: Model name (default: "anthropic/claude-sonnet-4.5")
+        ORCHESTRATOR_MODEL: Model name (configured in .env - see .env.example)
         OPENROUTER_API_KEY: OpenRouter API key (required if provider=openrouter)
         OPENAI_API_KEY: OpenAI API key (required if provider=openai)
         ANTHROPIC_API_KEY: Anthropic API key (required if provider=anthropic)
@@ -427,10 +463,16 @@ def load_orchestrator_config() -> OrchestratorModelConfig:
         OrchestratorModelConfig: Orchestrator configuration
 
     Raises:
-        ValueError: If required API key is missing
+        ValueError: If required configuration is missing
     """
     provider = os.getenv("ORCHESTRATOR_PROVIDER", "openrouter")
-    model_name = os.getenv("ORCHESTRATOR_MODEL", "anthropic/claude-sonnet-4.5")
+    model_name = os.getenv("ORCHESTRATOR_MODEL")
+
+    if not model_name:
+        raise ValueError(
+            "ORCHESTRATOR_MODEL not configured. Please set in .env file. "
+            "See .env.example for configuration options."
+        )
 
     # Determine API key based on provider
     if provider == "openrouter":

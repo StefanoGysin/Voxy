@@ -1,7 +1,7 @@
 """
 Vision Agent Rate Limiting Middleware
 
-Implementa rate limiting específico para o Vision Agent GPT-5:
+Implementa rate limiting específico para o Vision Agent:
 - 10 uploads/min por usuário
 - 50 análises/hour por usuário
 - Cost tracking em tempo real
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class VisionRateLimiter:
     """
-    Rate limiter específico para Vision Agent GPT-5.
+    Rate limiter específico para Vision Agent.
 
     Implementa:
     - Rate limiting por usuário (10/min, 50/hour)

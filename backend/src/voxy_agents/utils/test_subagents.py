@@ -153,8 +153,11 @@ class SubagentTester:
         try:
             vision_config = load_vision_config()
             models["vision"] = vision_config.get_litellm_model_path()
-        except Exception:
-            models["vision"] = "openrouter/openai/gpt-4o"  # Fallback
+        except Exception as e:
+            logger.warning(f"Failed to load vision config: {e}")
+            models["vision"] = (
+                "<not_configured>"  # Fallback - configure VISION_MODEL in .env
+            )
 
         # Calculator Agent
         try:
@@ -162,7 +165,9 @@ class SubagentTester:
             models["calculator"] = f"{calc_config.provider}/{calc_config.model_name}"
         except Exception as e:
             logger.warning(f"Failed to load calculator config: {e}")
-            models["calculator"] = "gpt-4o-mini (fallback)"
+            models["calculator"] = (
+                "<not_configured>"  # Fallback - configure CALCULATOR_MODEL in .env
+            )
 
         # Corrector Agent
         try:
@@ -170,7 +175,9 @@ class SubagentTester:
             models["corrector"] = f"{corr_config.provider}/{corr_config.model_name}"
         except Exception as e:
             logger.warning(f"Failed to load corrector config: {e}")
-            models["corrector"] = "gpt-4o-mini (fallback)"
+            models["corrector"] = (
+                "<not_configured>"  # Fallback - configure CORRECTOR_MODEL in .env
+            )
 
         # Weather Agent
         try:
@@ -178,7 +185,9 @@ class SubagentTester:
             models["weather"] = f"{weather_config.provider}/{weather_config.model_name}"
         except Exception as e:
             logger.warning(f"Failed to load weather config: {e}")
-            models["weather"] = "gpt-4o-mini (fallback)"
+            models["weather"] = (
+                "<not_configured>"  # Fallback - configure WEATHER_MODEL in .env
+            )
 
         # Translator Agent
         try:
@@ -186,7 +195,9 @@ class SubagentTester:
             models["translator"] = f"{trans_config.provider}/{trans_config.model_name}"
         except Exception as e:
             logger.warning(f"Failed to load translator config: {e}")
-            models["translator"] = "gpt-4o-mini (fallback)"
+            models["translator"] = (
+                "<not_configured>"  # Fallback - configure TRANSLATOR_MODEL in .env
+            )
 
         return models
 
@@ -502,8 +513,9 @@ class SubagentTester:
             try:
                 config = load_orchestrator_config()
                 model_path = config.get_litellm_model_path()
-            except Exception:
-                model_path = "openrouter/anthropic/claude-sonnet-4.5"  # Fallback
+            except Exception as e:
+                logger.warning(f"Failed to load orchestrator config: {e}")
+                model_path = "<not_configured>"  # Fallback - configure ORCHESTRATOR_MODEL in .env
 
             return {
                 "name": "voxy",

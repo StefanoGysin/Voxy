@@ -1,6 +1,6 @@
 # VOXY Agents - Sistema Multi-Agente Inteligente
 
-Sistema conversacional multi-agente com GPT-4o orquestrando 4 subagentes especializados. Interface profissional com session management e dashboard em tempo real.
+Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provider, 400+ modelos) coordenando 4 subagentes especializados. Interface profissional com session management e dashboard em tempo real.
 
 ## 🚀 Status Atual
 
@@ -24,7 +24,7 @@ Sistema conversacional multi-agente com GPT-4o orquestrando 4 subagentes especia
 ## 🏗️ Arquitetura
 
 ### Backend (Python + OpenAI Agents SDK)
-- **VOXY Orchestrator**: GPT-4o (coordenação principal)
+- **VOXY Orchestrator**: LiteLLM Multi-Provider (400+ modelos configuráveis via .env, default: anthropic/claude-sonnet-4.5)
 - **4 Subagentes Configuráveis via LiteLLM**: Calculator, Corrector, Translator, Weather (400+ modelos disponíveis)
 - **Stack**: Python 3.9+, Poetry, FastAPI, Supabase, Redis
 - **API Consolidada**: 7 módulos (/auth, /chat, /sessions, /messages, /images, /test) + Modelos centralizados
@@ -239,7 +239,7 @@ NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000
   - Recomendado: DeepSeek V3.1 para raciocínio matemático + baixo custo
   - Alternativas: Claude Sonnet 4.5, GPT-4.1-mini, DeepSeek V3 0324 (grátis)
 - **Todos os subagentes**: Suporte a 400+ modelos via LiteLLM Multi-Provider Architecture
-- **VOXY**: Orquestração inteligente (GPT-4o)
+- **VOXY**: Orquestração inteligente (LiteLLM configurável via ORCHESTRATOR_MODEL - ver .env.example)
 
 ### Comunicação Real-time Segura
 - **WebSocket Seguro**: JWT **obrigatório** via query parameter (código 1008 se ausente/inválido)
@@ -278,6 +278,10 @@ NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000
 ```
 
 ### Modelos Recomendados
+
+> **💡 Nota sobre Modelos**: Todos os modelos listados abaixo são **sugestões baseadas em custo-benefício (2025)**.
+> O sistema suporta **400+ modelos** via LiteLLM. Configure qualquer modelo através das variáveis
+> `*_MODEL` no arquivo `.env`. Consulte `.env.example` para ver a configuração atual do seu projeto.
 
 #### Para Matemática e Raciocínio (Calculator Agent)
 
@@ -776,6 +780,8 @@ poetry run pytest tests/test_subagent_tester.py \
 | ↳ Free | ~1.5s | DeepSeek V3 0324 (grátis) | **$0** |
 | **Vision (cache hit)** | <1s | cached | $0 |
 | Vision (cache miss) | 7-8s | gpt-5/gpt-4o | $0.02 |
+
+*Métricas baseadas nos modelos default do `.env.example`. Performance varia por modelo escolhido.*
 
 #### 🔧 Configuração de Flags
 

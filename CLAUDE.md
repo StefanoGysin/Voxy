@@ -118,6 +118,22 @@ voxy/
 
 **Regra**: Claude pode criar documentação livremente em `.safe-zone/` mas NUNCA em `docs/` sem autorização explícita.
 
+## 🔧 Consultando Configuração de Modelos Atual
+
+**IMPORTANTE**: A documentação usa modelos como **exemplos** (defaults configurados em `.env.example`).
+Para saber qual modelo está **realmente sendo usado** no ambiente atual:
+
+1. **Verificar arquivo .env**:
+   ```bash
+   grep "ORCHESTRATOR_MODEL\|CALCULATOR_MODEL\|VISION_MODEL" backend/.env
+   ```
+
+2. **Consultar quando necessário**: Antes de assumir qual modelo está ativo, sempre consulte o `.env`
+   ou pergunte ao usuário sobre a configuração atual.
+
+3. **Flexibilidade**: Qualquer referência a "Claude Sonnet 4.5", "GPT-4o", etc. na documentação
+   refere-se aos **defaults sugeridos**, não a requisitos fixos.
+
 ## 🧪 Testing & Quality
 
 **Coverage**:
@@ -279,14 +295,6 @@ npm run lint
 3. Adicionar env vars em `.env.example`
 4. Atualizar testes para mockar `load_config` e `create_litellm_model`
 
-**Modelos recomendados (2025)**:
-- **Orchestrator**: `anthropic/claude-sonnet-4.5` ($3/$15 per 1M) - Advanced reasoning (DEFAULT)
-- Calculator: `deepseek/deepseek-chat-v3.1` ($0.20/$0.80 per 1M)
-- Corrector: `google/gemini-2.5-flash-preview` ($0.30/$2.50 per 1M)
-- Weather: `openai/gpt-4.1-nano` ($0.10/$0.40 per 1M)
-- Translator: `google/gemini-2.5-pro` ($1.25/$10.00 per 1M)
-- Vision: `openai/gpt-4o` ($2.50/$10.00 per 1M) ou `anthropic/claude-3.5-sonnet` ($3/$15)
-
 ## 🧪 Sistema de Testes Isolados
 
 **Bypass do VOXY Orchestrator** para debug rápido:
@@ -359,7 +367,7 @@ poetry run python scripts/test_agent.py --interactive
 
 ## 🎯 Features Principais
 
-**Orchestrator LiteLLM**: VOXY com Claude Sonnet 4.5 + 400+ modelos configuráveis via factory pattern
+**Orchestrator LiteLLM**: VOXY totalmente configurável (400+ modelos via .env)
 **Multi-Agent System**: 5 subagentes (OpenAI Agents SDK + LiteLLM) + Flow Corrections
 **Image Management**: Upload, grid responsivo, modal, busca, metadata editing
 **VOXY Web OS**: Interface desktop com 13 wallpapers + Grid responsivo (6 breakpoints)
@@ -408,6 +416,6 @@ Quando usar auto-compact, foque em:
 
 ---
 
-**Sistema multi-agente enterprise-ready com VOXY Orchestrator (Claude Sonnet 4.5) + 5 Subagentes SDK (OpenAI Agents + LiteLLM) + VOXY Web OS + Image Management System + API Architecture DRY-compliant + Pre-commit Quality Hooks completamente implementado e 100% operacional.**
+**Sistema multi-agente enterprise-ready com VOXY Orchestrator (LiteLLM Multi-Provider) + 5 Subagentes SDK (OpenAI Agents + LiteLLM configuráveis) + VOXY Web OS + Image Management System + API Architecture DRY-compliant + Pre-commit Quality Hooks completamente implementado e 100% operacional.**
 
 *Última atualização: 2025-10-23 - Pre-commit Hooks System (Black + Ruff + Mypy auto-validation)*

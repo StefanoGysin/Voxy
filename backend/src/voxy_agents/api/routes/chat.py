@@ -31,9 +31,7 @@ class ChatRequest(BaseModel):
 
     message: str
     session_id: Optional[str] = None
-    image_url: Optional[str] = (
-        None  # Support for image analysis with Vision Agent GPT-5
-    )
+    image_url: Optional[str] = None  # Support for image analysis with Vision Agent
 
 
 class ChatResponse(BaseModel):
@@ -48,7 +46,7 @@ class ChatResponse(BaseModel):
     tools_used: list[str] = []  # List of tools/subagents used
     cached: bool = False
     vision_metadata: Optional[dict] = (
-        None  # GPT-5 analysis metadata (model, cost, etc.)
+        None  # Vision analysis metadata (model, cost, etc.)
     )
 
 
@@ -59,7 +57,7 @@ class WebSocketMessage(BaseModel):
     message: str
     session_id: Optional[str] = None
     image_url: Optional[str] = None  # For vision analysis requests
-    vision_metadata: Optional[dict] = None  # GPT-5 analysis metadata
+    vision_metadata: Optional[dict] = None  # Vision analysis metadata
 
 
 @router.post("/", response_model=ChatResponse)
@@ -90,7 +88,7 @@ async def chat_with_voxy(
             rate_limiter = get_vision_rate_limiter()
             # Check rate limits before processing
             await rate_limiter.check_upload_rate_limit(current_user.id)
-            # Estimated cost for GPT-5 image analysis
+            # Estimated cost for Vision Agent image analysis
             estimated_cost = 0.05  # $0.05 estimated per analysis
             await rate_limiter.check_cost_limits(current_user.id, estimated_cost)
 
