@@ -55,7 +55,7 @@ class ReasoningConfig:
 
         Args:
             provider: Nome do provider (sempre 'openrouter' quando chamado)
-            model: Nome do modelo (ex: anthropic/claude-sonnet-4.5)
+            model: Nome do modelo (configurable via .env, e.g., anthropic/claude-sonnet-4.5)
 
         Returns:
             Dict com reasoning no formato OpenRouter unificado

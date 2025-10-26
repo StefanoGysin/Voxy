@@ -155,11 +155,11 @@ export function MessageBubble({ message, className }: MessageBubbleProps) {
                         )}
                         
                         <div className="flex items-center gap-1">
-                          <Badge 
-                            variant={message.visionMetadata?.modelUsed === 'gpt-5' ? 'default' : 'secondary'}
+                          <Badge
+                            variant={message.visionMetadata?.modelUsed?.toLowerCase().includes('gpt-5') ? 'default' : 'secondary'}
                             className="text-xs"
                           >
-                            {message.visionMetadata?.modelUsed === 'gpt-5' ? '✨ GPT-5' : '🔄 GPT-4o Fallback'}
+                            ✨ {message.visionMetadata?.modelUsed || 'Vision Model'}
                           </Badge>
                         </div>
                       </div>

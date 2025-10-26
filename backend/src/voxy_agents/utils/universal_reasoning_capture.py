@@ -4,10 +4,10 @@ Universal Reasoning Capture System
 Sistema universal para capturar reasoning/thinking de múltiplos provedores LLM.
 Suporta diferentes estratégias de extração conforme a arquitetura de cada provedor.
 
-Providers Suportados:
-- Claude Sonnet 4.5: Extended Thinking API (thinking blocks)
-- Gemini 2.5: Thinking Config API (thought summaries)
-- OpenAI GPT-5/o1: Reasoning tokens (usage statistics only)
+Providers Suportados (all configurable via .env):
+- Claude (e.g., Sonnet 4.5): Extended Thinking API (thinking blocks)
+- Gemini (e.g., 2.5): Thinking Config API (thought summaries)
+- OpenAI (e.g., GPT-5/o1): Reasoning tokens (usage statistics only)
 - Grok/DeepSeek: reasoning_content field
 - Generic: Log parsing (fallback)
 
@@ -128,7 +128,9 @@ class ClaudeThinkingExtractor(ReasoningExtractor):
     """Extrai thinking blocks da API Extended Thinking do Claude."""
 
     def __init__(self):
-        super().__init__(provider="claude", model="claude-sonnet-4.5")
+        super().__init__(
+            provider="claude", model="claude"
+        )  # Generic placeholder - actual model from config
 
     def supports_provider(self, provider: str, model: str) -> bool:
         """Suporta provedores Anthropic/Claude."""

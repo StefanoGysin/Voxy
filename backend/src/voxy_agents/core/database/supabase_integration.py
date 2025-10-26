@@ -88,8 +88,8 @@ def _format_item_hierarchical(
     # Format content with truncation
     if content:
         if isinstance(content, str):
-            if len(content) > 100:
-                truncated = f"{content[:100]}... [{len(content) - 100} chars omitted]"
+            if len(content) > 500:
+                truncated = f"{content[:500]}... [{len(content) - 500} chars omitted]"
             else:
                 truncated = content
         elif isinstance(content, list):
@@ -102,12 +102,12 @@ def _format_item_hierarchical(
                     elif "output_text" in part:
                         text_parts.append(part["output_text"])
             combined = " ".join(text_parts)
-            if len(combined) > 100:
-                truncated = f"{combined[:100]}... [{len(combined) - 100} chars omitted]"
+            if len(combined) > 500:
+                truncated = f"{combined[:500]}... [{len(combined) - 500} chars omitted]"
             else:
                 truncated = combined
         else:
-            truncated = str(content)[:100]
+            truncated = str(content)[:500]
 
         lines.append(f'{indent}{vertical}├─ {content_label}: "{truncated}"')
 

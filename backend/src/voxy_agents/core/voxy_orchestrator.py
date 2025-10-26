@@ -5,7 +5,7 @@ This is the heart of the VOXY system, built on the official OpenAI Agents SDK.
 Uses the "subagents as tools" pattern for optimal orchestration.
 
 Architecture:
-- VOXY (main agent) uses GPT-4.1 for intelligent reasoning
+- VOXY (main agent) uses LiteLLM Multi-Provider (configurable via .env, e.g., Claude Sonnet 4.5, GPT-4.1)
 - Subagents are registered as tools via .as_tool()
 - OpenAI Agents SDK handles sessions, streaming, and tool calls
 - Implements the creative decisions from CREATIVE MODE
@@ -14,7 +14,6 @@ Migração Loguru - Sprint 4 + Sprint Multi-Agent Hierarchical Logging
 """
 
 import json
-import os
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
@@ -26,7 +25,7 @@ from openai import AsyncOpenAI
 from ..config.settings import settings
 from .database.supabase_integration import SupabaseSession
 from .guardrails.safety_check import SafetyChecker
-from .subagents.vision_agent import VisionAnalysisResult, get_vision_agent
+from .subagents.vision_agent import get_vision_agent
 
 
 @dataclass
@@ -203,19 +202,25 @@ class VoxyOrchestrator:
 
         tools.append(web_search)
 
-        # Prepare ModelSettings with reasoning parameters
+        # Prepare ModelSettings with reasoning parameters and usage tracking
         # NOTE: SDK v0.3.0+ requires ModelSettings to be an instance, not None
+        # IMPORTANT: include_usage=True enables token tracking via result.context_wrapper.usage
         if self.reasoning_params:
             # Pass reasoning params via ModelSettings.extra_args
-            model_settings = ModelSettings(extra_args=self.reasoning_params)
+            model_settings = ModelSettings(
+                include_usage=True,  # Enable usage tracking
+                extra_args=self.reasoning_params,
+            )
 
             logger.bind(event="VOXY_ORCHESTRATOR|MODEL_SETTINGS").debug(
-                "ModelSettings configured with reasoning", has_reasoning=True
+                "ModelSettings configured with reasoning and usage tracking",
+                has_reasoning=True,
+                usage_tracking=True,
             )
         else:
-            # Create empty ModelSettings when reasoning is disabled
+            # Create ModelSettings with usage tracking enabled
             # SDK v0.3.0+ doesn't accept None
-            model_settings = ModelSettings()
+            model_settings = ModelSettings(include_usage=True)
 
         # Create main VOXY agent with LiteLLM model
         # IMPORTANT: Known SDK limitation - thinking blocks may be lost during tool calls
@@ -381,95 +386,6 @@ class VoxyOrchestrator:
             return "comprehensive"
         else:
             return "standard"
-
-    async def _conversationalize_vision_result(
-        self, vision_result: VisionAnalysisResult, user_query: str
-    ) -> str:
-        """
-        Lightweight post-processing to convert technical analysis into conversational response.
-
-        Uses lightweight model for fast conversationalization (adds ~1-2s).
-        Avoids Runner.run() overhead to maintain performance.
-
-        Args:
-            vision_result: Technical analysis from Vision Agent
-            user_query: Original user question
-
-        Returns:
-            Conversational response suitable for end user
-        """
-        try:
-            # Build conversationalization prompt
-            prompt = f"""Você é VOXY, um assistente brasileiro amigável e natural.
-
-O usuário perguntou: "{user_query}"
-
-O Vision Agent analisou a imagem e retornou esta análise técnica:
-
-{vision_result.analysis}
-
-Metadados:
-- Modelo usado: {vision_result.metadata.get('model_used')}
-- Confiança: {vision_result.confidence:.1%}
-- Tipo de análise: {vision_result.metadata.get('analysis_type')}
-
-TAREFA:
-Transforme essa análise técnica em uma resposta conversacional natural e amigável para o usuário.
-
-REGRAS:
-- Use tom brasileiro casual mas profissional
-- Use emojis quando apropriado 😊
-- Seja empático e natural
-- Se a análise for técnica, simplifique para usuário leigo
-- Mantenha as informações principais da análise
-- NÃO mencione metadados técnicos (modelo, confiança) diretamente
-
-Responda APENAS com a versão conversacional, sem introduções ou conclusões extras."""
-
-            # Get conversationalization model from environment
-            conversationalization_model = os.getenv("CONVERSATIONALIZATION_MODEL")
-            if not conversationalization_model:
-                raise ValueError(
-                    "CONVERSATIONALIZATION_MODEL not configured. Please set in .env file. "
-                    "See .env.example for configuration options."
-                )
-
-            # Lightweight conversationalization model call (no SDK overhead)
-            response = await self.openai_client.chat.completions.create(
-                model=conversationalization_model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=500,
-                temperature=0.7,  # More creative for conversational tone
-            )
-
-            conversational_response = response.choices[0].message.content.strip()
-
-            # Calculate transformation metrics
-            original_len = len(vision_result.analysis)
-            conversational_len = len(conversational_response)
-            diff_percent = (
-                ((conversational_len - original_len) / original_len) * 100
-                if original_len > 0
-                else 0
-            )
-            diff_sign = "+" if diff_percent > 0 else ""
-
-            logger.info(
-                f"🎨 Conversationalization completed:\n"
-                f"   ├─ 📥 Input (technical): {original_len} chars\n"
-                f"   ├─ 📤 Output (conversational): {conversational_len} chars\n"
-                f"   ├─ 🔄 Diff: {diff_sign}{diff_percent:.1f}%\n"
-                f"   └─ 📝 Preview: {conversational_response[:150]}{'...' if len(conversational_response) > 150 else ''}"
-            )
-
-            return conversational_response
-
-        except Exception as e:
-            logger.bind(event="VOXY_ORCHESTRATOR|CONVERSATIONALIZATION_ERROR").error(
-                "Conversationalization failed, returning raw analysis", error=str(e)
-            )
-            # Fallback: return raw analysis if conversationalization fails
-            return vision_result.analysis
 
     def _extract_tool_invocations(self, result) -> list[ToolInvocation]:
         """
@@ -746,88 +662,175 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # Create SupabaseSession for automatic context management
             session = SupabaseSession(session_id=actual_session_id, user_id=user_id)
 
-            # 🖼️ VISION AGENT - Vision model analysis with lightweight post-processing
+            # 🖼️ VISION AGENT PATH 1 - Vision bypass with VOXY processing
             if image_url and self._is_vision_request(message):
                 logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1").info(
-                    "PATH 1: Vision bypass with lightweight post-processing"
+                    "PATH 1: Vision bypass + VOXY processing (architectural correction)"
                 )
 
                 try:
-                    # Determine analysis type and detail level from message
-                    analysis_type = self._determine_analysis_type(message)
-                    detail_level = self._determine_detail_level(message)
-
-                    # Use Vision Agent directly for technical analysis
+                    # Step 1: Use Vision Agent directly for analysis (bypass optimization)
                     vision_agent = get_vision_agent()
-                    vision_result = await vision_agent.analyze_image(
+                    vision_analysis_start = datetime.now()
+
+                    vision_analysis = await vision_agent.analyze_image(
                         image_url=image_url,
                         query=message,
-                        analysis_type=analysis_type,
-                        detail_level=detail_level,
+                        user_id=user_id,
                     )
 
-                    if not vision_result.success:
-                        raise Exception(vision_result.error)
+                    vision_analysis_time = (
+                        datetime.now() - vision_analysis_start
+                    ).total_seconds()
 
-                    # Log Vision Agent technical response
+                    # Log Vision Agent response
                     logger.info(
                         f"✅ [TRACE:{trace_id}] Vision Agent analysis completed:\n"
-                        f"   ├─ 📝 Response ({len(vision_result.analysis)} chars): {vision_result.analysis[:200]}{'...' if len(vision_result.analysis) > 200 else ''}\n"
-                        f"   ├─ 🎯 Confidence: {vision_result.confidence:.1%}\n"
-                        f"   ├─ 🤖 Model: {vision_result.metadata.get('model_used')}\n"
-                        f"   ├─ ⏱️  Time: {vision_result.metadata.get('processing_time', 0):.2f}s\n"
-                        f"   └─ 💰 Cost: ${vision_result.metadata.get('cost', 0):.4f}"
+                        f"   ├─ 📝 Response ({len(vision_analysis)} chars): {vision_analysis[:200]}{'...' if len(vision_analysis) > 200 else ''}\n"
+                        f"   └─ ⏱️  Time: {vision_analysis_time:.2f}s"
                     )
 
-                    # Lightweight post-processing with conversationalization model (adds ~1-2s)
-                    # Feature flag: Can be disabled via ENABLE_VISION_POSTPROCESSING=false
-                    if settings.enable_vision_postprocessing:
-                        conversational_response = (
-                            await self._conversationalize_vision_result(
-                                vision_result, message
-                            )
-                        )
-                        logger.info(
-                            "✨ Post-processing enabled: Technical → Conversational"
-                        )
-                    else:
-                        # Legacy mode: Return raw analysis
-                        conversational_response = vision_result.analysis
-                        logger.info(
-                            "⚠️  Post-processing DISABLED: Returning raw analysis"
-                        )
+                    # Step 2: Inject Vision result into VOXY context for processing
+                    # VOXY decides how to respond based on Vision analysis
 
+                    context_message = f"""Você analisou esta imagem com o Vision Agent e obteve o seguinte resultado:
+
+**Imagem analisada**: {image_url}
+
+{vision_analysis}
+
+Agora responda à pergunta do usuário de forma natural e conversacional: "{message}"
+
+IMPORTANTE: Seja direto, use tom brasileiro amigável, e use emojis quando apropriado. Se o usuário perguntar sobre a imagem ou pedir o link, você PODE fornecer a URL acima."""
+
+                    logger.bind(
+                        event="VOXY_ORCHESTRATOR|VISION_CONTEXT_INJECTION"
+                    ).info(
+                        "Injecting Vision analysis into VOXY context",
+                        vision_response_length=len(vision_analysis),
+                        context_message_length=len(context_message),
+                    )
+
+                    # Step 3: VOXY processes Vision result and generates final response
+                    logger.bind(
+                        event="VOXY_ORCHESTRATOR|PROCESSING_VISION_RESULT"
+                    ).info(
+                        "VOXY processing Vision analysis via Runner.run()",
+                        context_length=len(context_message),
+                        model=self.config.get_litellm_model_path(),
+                    )
+
+                    voxy_processing_start = datetime.now()
+                    result = await Runner.run(
+                        self.voxy_agent,
+                        context_message,
+                        session=session,
+                    )
+                    voxy_processing_time = (
+                        datetime.now() - voxy_processing_start
+                    ).total_seconds()
+
+                    # Log VOXY processing completion
+                    logger.bind(event="VOXY_ORCHESTRATOR|RUNNER_COMPLETE").info(
+                        "VOXY generated conversational response",
+                        voxy_processing_time=voxy_processing_time,
+                    )
+
+                    # Extract tools_used from VOXY processing
+                    invocations = self._extract_tool_invocations(result)
+
+                    # Extract response
+                    response_text = (
+                        result.final_output
+                        if hasattr(result, "final_output")
+                        else str(result)
+                    )
+                    if isinstance(response_text, list):
+                        response_text = " ".join(str(x) for x in response_text)
+                    elif not isinstance(response_text, str):
+                        response_text = str(response_text)
+
+                    # Update metrics
                     total_processing_time = (
                         datetime.now() - start_time
                     ).total_seconds()
                     self.request_count += 1
+                    voxy_tools = [inv.tool_name for inv in invocations]
+
+                    # Track token usage for observability and cost estimation
+                    from ..utils.usage_tracker import (
+                        SubagentInfo,
+                        extract_usage,
+                        log_usage_metrics,
+                    )
+
+                    voxy_usage = extract_usage(result)
+
+                    # Build subagent info list from invocations (PATH 1 may have additional subagents)
+                    subagents_called = []
+                    for inv in invocations:
+                        # Get friendly agent name
+                        agent_name = TOOL_TO_AGENT_MAP.get(inv.tool_name, inv.tool_name)
+
+                        # Format input preview
+                        if isinstance(inv.input_args, dict):
+                            input_preview = str(next(iter(inv.input_args.values()), ""))
+                        else:
+                            input_preview = str(inv.input_args)
+
+                        # Format output preview
+                        output_preview = str(inv.output)
+
+                        subagents_called.append(
+                            SubagentInfo(
+                                name=agent_name,
+                                model=inv.model,
+                                config=inv.config,
+                                input_preview=input_preview,
+                                output_preview=output_preview,
+                            )
+                        )
+
+                    log_usage_metrics(
+                        trace_id=trace_id,
+                        path="PATH_1",
+                        voxy_usage=voxy_usage,
+                        vision_usage=None,  # Vision Agent returns string, not RunResult with usage
+                        total_time=total_processing_time,
+                        vision_time=vision_analysis_time,
+                        voxy_time=voxy_processing_time,
+                        model_path=self.config.get_litellm_model_path(),
+                        voxy_model=self.config.get_litellm_model_path(),
+                        voxy_config={
+                            "max_tokens": self.config.max_tokens,
+                            "temperature": self.config.temperature,
+                        },
+                        subagents_called=subagents_called if subagents_called else None,
+                    )
+
+                    # Combine Vision + VOXY tools
+                    tools_used = ["vision_agent"] + voxy_tools
 
                     metadata = {
                         "agent_type": "vision",
-                        "tools_used": ["vision_agent"],
+                        "tools_used": tools_used,
                         "processing_time": total_processing_time,
-                        "vision_analysis_time": vision_result.metadata.get(
-                            "processing_time", 0
-                        ),
-                        "conversationalization_time": total_processing_time
-                        - vision_result.metadata.get("processing_time", 0),
+                        "vision_analysis_time": vision_analysis_time,
+                        "voxy_processing_time": voxy_processing_time,
                         "request_count": self.request_count,
                         "session_id": actual_session_id,
                         "user_id": user_id,
                         "multimodal": True,
-                        "confidence": vision_result.confidence,
-                        "model_used": vision_result.metadata.get("model_used"),
-                        "cost": vision_result.metadata.get("cost", 0),
-                        "cache_hit": vision_result.metadata.get("cache_hit", False),
+                        "path": "PATH_1",
+                        "sdk_version": "0.2.8",
                     }
 
                     logger.info(
                         f"⚡ [TRACE:{trace_id}] PATH 1 completed in {total_processing_time:.2f}s "
-                        f"(vision: {vision_result.metadata.get('processing_time', 0):.1f}s + "
-                        f"conversationalization: {metadata['conversationalization_time']:.1f}s)"
+                        f"(vision: {vision_analysis_time:.1f}s + voxy: {voxy_processing_time:.1f}s)"
                     )
 
-                    return conversational_response, metadata
+                    return response_text, metadata
 
                 except Exception as vision_error:
                     logger.bind(event="VOXY_ORCHESTRATOR|VISION_PATH1_ERROR").error(
@@ -956,12 +959,62 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             processing_time = (datetime.now() - start_time).total_seconds()
             self.request_count += 1
 
+            # Extract tool invocations for hierarchical logging
+            invocations = self._extract_tool_invocations(result)
+
+            # Track token usage for PATH 2 (standard flow)
+            from ..utils.usage_tracker import (
+                SubagentInfo,
+                extract_usage,
+                log_usage_metrics,
+            )
+
+            voxy_usage = extract_usage(result)
+
+            # Build subagent info list from invocations
+            subagents_called = []
+            for inv in invocations:
+                # Get friendly agent name
+                agent_name = TOOL_TO_AGENT_MAP.get(inv.tool_name, inv.tool_name)
+
+                # Format input preview
+                if isinstance(inv.input_args, dict):
+                    # Get first value from input args (usually the main param)
+                    input_preview = str(next(iter(inv.input_args.values()), ""))
+                else:
+                    input_preview = str(inv.input_args)
+
+                # Format output preview
+                output_preview = str(inv.output)
+
+                subagents_called.append(
+                    SubagentInfo(
+                        name=agent_name,
+                        model=inv.model,
+                        config=inv.config,
+                        input_preview=input_preview,
+                        output_preview=output_preview,
+                    )
+                )
+
+            log_usage_metrics(
+                trace_id=trace_id,
+                path="PATH_2",
+                voxy_usage=voxy_usage,
+                total_time=processing_time,
+                voxy_time=processing_time,  # PATH 2 has only VOXY processing
+                model_path=self.config.get_litellm_model_path(),
+                voxy_model=self.config.get_litellm_model_path(),
+                voxy_config={
+                    "max_tokens": self.config.max_tokens,
+                    "temperature": self.config.temperature,
+                },
+                subagents_called=subagents_called if subagents_called else None,
+            )
+
             # Extract tools_used and determine agent_type (PATH 2)
             tools_used = []
             agent_type = "voxy"  # Default to voxy (orchestrator)
-
-            # Extract tool invocations for hierarchical logging
-            invocations = self._extract_tool_invocations(result)
 
             # Extract tools_used list for backward compatibility
             tools_used = [inv.tool_name for inv in invocations]
@@ -1032,18 +1085,18 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
                         reasoning_log += "   └─ 💭 Thinking:\n"
 
                         # Format each line of thinking with proper indentation
-                        for i, line in enumerate(preview_lines[:10]):  # Max 10 lines
+                        for i, line in enumerate(preview_lines[:50]):  # Max 50 lines
                             if (
-                                i == len(preview_lines[:10]) - 1
-                                and len(thinking_text) > 400
+                                i == len(preview_lines[:50]) - 1
+                                and len(thinking_text) > 2000
                             ):
                                 reasoning_log += f"      {line}...\n"
                             else:
                                 reasoning_log += f"      {line}\n"
 
-                        if len(preview_lines) > 10 or len(thinking_text) > 400:
+                        if len(preview_lines) > 50 or len(thinking_text) > 2000:
                             reasoning_log += (
-                                f"      [...{len(thinking_text) - 400} chars omitted]"
+                                f"      [...{len(thinking_text) - 2000} chars omitted]"
                             )
 
                     logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(
@@ -1110,20 +1163,15 @@ Responda APENAS com a versão conversacional, sem introduções ou conclusões e
             # Add vision metadata if Vision Agent was used (PATH 2)
             if "analyze_image" in tools_used:
                 vision_agent = get_vision_agent()
-                vision_stats = vision_agent.get_stats()
                 metadata["vision_metadata"] = {
                     "image_url": image_url if image_url else "extracted_from_message",
-                    "model_used": vision_agent.current_model,
-                    "analysis_count": vision_stats["analysis_count"],
-                    "gpt5_usage_count": vision_stats["gpt5_usage_count"],
-                    "gpt4o_fallback_count": vision_stats["gpt4o_fallback_count"],
-                    "total_cost": vision_stats["total_cost"],
-                    "average_cost": vision_stats["average_cost"],
+                    "model_used": vision_agent.config.get_litellm_model_path(),
                     "multimodal": True,
                     "path": "PATH_2",
                 }
-                logger.info(
-                    f"🖼️ PATH 2 - Vision analysis completed with {vision_agent.current_model}"
+                logger.bind(event="VOXY|VISION_PATH2").info(
+                    "PATH 2 - Vision analysis completed",
+                    model=vision_agent.config.get_litellm_model_path(),
                 )
 
             logger.info(

@@ -33,8 +33,11 @@ export function VisionAnalysisDisplay({
     return cost < 0.001 ? '<$0.001' : `$${cost.toFixed(3)}`
   }
   
-  const getModelBadgeVariant = (model: 'gpt-5' | 'gpt-4o') => {
-    return model === 'gpt-5' ? 'default' : 'secondary'
+  const getModelBadgeVariant = (model: string) => {
+    // Generic badge variant based on model name patterns
+    if (model.toLowerCase().includes('gpt-5')) return 'default'
+    if (model.toLowerCase().includes('gpt-4')) return 'secondary'
+    return 'outline'
   }
   
   const getConfidenceColor = (confidence?: number) => {
@@ -110,7 +113,7 @@ export function VisionAnalysisDisplay({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={getModelBadgeVariant(analysis.modelUsed)}>
-              {analysis.modelUsed === 'gpt-5' ? '✨ GPT-5' : '🔄 GPT-4o'}
+              ✨ {analysis.modelUsed}
             </Badge>
           </div>
         </CardTitle>

@@ -291,16 +291,9 @@ class SubagentTester:
         # Obter instância do Vision Agent
         vision_agent: VisionAgent = get_vision_agent()
 
-        # Bypass de cache se configurado
-        if self.bypass_cache:
-            vision_agent.vision_cache.local_cache.clear()
-            logger.info("🗑️ Vision Agent cache cleared")
-
-        # Bypass de rate limiting se configurado
-        if self.bypass_rate_limit:
-            vision_agent.requests_in_current_minute = 0
-            vision_agent.requests_in_current_hour = 0
-            logger.info("⚡ Rate limiting bypassed")
+        # Note: Vision Agent no longer has internal cache or rate limiting
+        # Cache is managed by Redis (chat.py) and rate limiting by middleware
+        # bypass_cache and bypass_rate_limit flags are ignored for Vision Agent
 
         # Extrair parâmetros
         image_url = input_data.get("image_url")
@@ -308,41 +301,47 @@ class SubagentTester:
             raise ValueError("image_url is required for vision agent")
 
         query = input_data.get("query", "Analise esta imagem")
-        analysis_type = input_data.get("analysis_type", "general")
-        detail_level = input_data.get("detail_level", "standard")
-        specific_questions = input_data.get("specific_questions")
 
-        # Chamar Vision Agent diretamente
-        vision_result = await vision_agent.analyze_image(
-            image_url=image_url,
-            query=query,
-            analysis_type=analysis_type,
-            detail_level=detail_level,
-            specific_questions=specific_questions,
-        )
+        # Chamar Vision Agent com API simplificada (retorna string diretamente)
+        try:
+            analysis = await vision_agent.analyze_image(
+                image_url=image_url,
+                query=query,
+                user_id="test_user",
+            )
 
-        processing_time = (datetime.now() - start_time).total_seconds()
+            processing_time = (datetime.now() - start_time).total_seconds()
 
-        # Construir TestResult
-        return TestResult(
-            success=vision_result.success,
-            agent_name="vision",
-            response=vision_result.analysis,
-            error=vision_result.error,
-            metadata=TestMetadata(
-                processing_time=processing_time,
-                model_used=vision_result.metadata.get("model_used", "unknown"),
-                cost=vision_result.metadata.get("cost", 0.0),
-                cache_hit=vision_result.metadata.get("cache_hit", False),
-                confidence=vision_result.confidence,
-                analysis_type=analysis_type,
-                detail_level=detail_level,
-                reasoning_level=vision_result.metadata.get("reasoning_level"),
-                api_time=vision_result.metadata.get("api_time"),
-                bypass_cache=self.bypass_cache,
-                bypass_rate_limit=self.bypass_rate_limit,
-            ),
-        )
+            # Construir TestResult com resposta bem-sucedida
+            return TestResult(
+                success=True,
+                agent_name="vision",
+                response=analysis,
+                error=None,
+                metadata=TestMetadata(
+                    processing_time=processing_time,
+                    model_used=vision_agent.config.get_litellm_model_path(),
+                    bypass_cache=self.bypass_cache,
+                    bypass_rate_limit=self.bypass_rate_limit,
+                ),
+            )
+
+        except Exception as e:
+            processing_time = (datetime.now() - start_time).total_seconds()
+
+            # Construir TestResult com erro
+            return TestResult(
+                success=False,
+                agent_name="vision",
+                response="",
+                error=str(e),
+                metadata=TestMetadata(
+                    processing_time=processing_time,
+                    model_used=vision_agent.config.get_litellm_model_path(),
+                    bypass_cache=self.bypass_cache,
+                    bypass_rate_limit=self.bypass_rate_limit,
+                ),
+            )
 
     async def _test_standard_agent(
         self,
@@ -401,7 +400,7 @@ class SubagentTester:
                 "total_tokens": result.usage.total_tokens,
             }
 
-        # Calcular custo estimado (GPT-4o-mini pricing)
+        # Calcular custo estimado (example pricing - actual model configurable via .env)
         cost = None
         if tokens_used:
             # GPT-4o-mini: $0.15/$0.60 per 1M tokens (input/output)
@@ -652,32 +651,17 @@ async def test_voxy_orchestrator(
     vision_agent: Optional[VisionAgent] = None
     if image_url or bypass_cache or bypass_rate_limit:
         try:
-            vision_agent = get_vision_agent()
+            vision_agent = get_vision_agent()  # noqa: F841
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning(
                 "Não foi possível inicializar Vision Agent para teste do orquestrador: %s",
                 exc,
             )
-            vision_agent = None
 
-        if vision_agent is not None:
-            if bypass_cache and hasattr(vision_agent, "vision_cache"):
-                try:
-                    vision_agent.vision_cache.local_cache.clear()
-                    if hasattr(vision_agent.vision_cache, "cache_hits"):
-                        vision_agent.vision_cache.cache_hits = 0
-                        vision_agent.vision_cache.cache_misses = 0
-                except Exception as cache_error:  # pragma: no cover
-                    logger.debug(
-                        "Falha ao limpar cache do Vision Agent durante teste: %s",
-                        cache_error,
-                    )
-
-            if bypass_rate_limit:
-                if hasattr(vision_agent, "requests_in_current_minute"):
-                    vision_agent.requests_in_current_minute = 0
-                if hasattr(vision_agent, "requests_in_current_hour"):
-                    vision_agent.requests_in_current_hour = 0
+        # Note: Vision Agent no longer has internal cache or rate limiting
+        # Cache is managed by Redis (chat.py) and rate limiting by middleware
+        # bypass_cache and bypass_rate_limit flags are ignored for Vision Agent
+        # vision_agent variable is kept for future compatibility if needed
 
     voxy_system = VOXYSystem()
 

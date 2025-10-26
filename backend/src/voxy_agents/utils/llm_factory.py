@@ -117,7 +117,7 @@ def create_openai_model(
     Convenience function to create an OpenAI model directly.
 
     Args:
-        model_name: OpenAI model name (e.g., "gpt-4o-mini")
+        model_name: OpenAI model name (configurable via .env, e.g., "gpt-4o-mini")
         api_key: OpenAI API key
         max_tokens: Maximum tokens in response
         temperature: Sampling temperature
@@ -127,7 +127,7 @@ def create_openai_model(
 
     Example:
         >>> model = create_openai_model(
-        ...     model_name="gpt-4o-mini",
+        ...     model_name="gpt-4o-mini",  # Example - configurable via .env
         ...     api_key="sk-..."
         ... )
     """

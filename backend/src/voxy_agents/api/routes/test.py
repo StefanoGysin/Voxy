@@ -130,7 +130,7 @@ async def test_subagent(request: SubagentTestRequest):
             "response": "Olá mundo",
             "metadata": {
                 "processing_time": 1.234,
-                "model_used": "gpt-4o-mini",
+                "model_used": "gpt-4o-mini",  # Example - actual model from .env config
                 "cost": 0.0001,
                 ...
             }
@@ -278,7 +278,7 @@ async def get_agent_info(agent_name: str):
         Response 200:
         {
             "name": "translator",
-            "model": "gpt-4o-mini",
+            "model": "gpt-4o-mini",  # Example - actual model from .env config
             "test_strategy": "sdk_runner",
             "capabilities": [
                 "Translation between languages",

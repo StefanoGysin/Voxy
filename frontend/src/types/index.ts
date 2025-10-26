@@ -33,7 +33,7 @@ export interface Message {
   sessionId: string
   imageUrl?: string
   visionMetadata?: {
-    modelUsed?: 'gpt-5' | 'gpt-4o'
+    modelUsed?: string  // Flexible - accepts any model configured via backend
     analysisType?: 'simple' | 'detailed' | 'chain-of-thought'
     confidence?: number
     cost?: number
@@ -83,7 +83,7 @@ export interface VisionAnalysis {
   id: string
   imageUrl: string
   analysis: string
-  modelUsed: 'gpt-5' | 'gpt-4o'
+  modelUsed: string  // Flexible - accepts any model configured via backend
   analysisType: 'simple' | 'detailed' | 'chain-of-thought'
   confidence?: number
   cost: number
@@ -96,7 +96,7 @@ export interface CostMetrics {
   monthlyBudget: number
   dailyUsage: number
   gpt5Usage: number
-  gpt4oFallbackUsage: number
+  fallbackUsage: number  // Generic fallback model usage (was gpt4oFallbackUsage)
   lastReset: Date
 }
 
