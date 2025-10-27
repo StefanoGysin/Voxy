@@ -4,7 +4,7 @@ Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provide
 
 ## 🚀 Status Atual
 
-**✅ Sistema 100% Funcional + LiteLLM Multi-Provider Support (2025-10-04)**
+**✅ Sistema 100% Funcional + LiteLLM Multi-Provider Support (2025-10-27)**
 - ✅ Multi-agent backend operacional
 - ✅ **🔧 LiteLLM Multi-Provider**: 4 Subagentes (Calculator, Corrector, Translator, Weather) com suporte a 400+ modelos via OpenRouter (NEW)
 - ✅ **🧪 Isolated Subagent Testing**: Sistema completo para testes isolados de subagentes
@@ -47,10 +47,10 @@ Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provide
 
 ### Pré-requisitos
 - Node.js 18+
-- Python 3.9+
-- Poetry
-- Redis
-- Contas: OpenAI, Supabase, OpenWeatherMap
+- Python 3.12+ (testado com 3.12.3)
+- Poetry 2.1.4
+- Redis 5.0+
+- Contas: OpenAI/OpenRouter, Supabase, OpenWeatherMap
 
 ### 1. Backend
 ```bash

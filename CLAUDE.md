@@ -1,6 +1,8 @@
 # VOXY Agents - Sistema Multi-Agente
 
-Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.2.8. Implementa orquestração inteligente com VOXY coordenando subagentes especializados + Vision Agent GPT-5 integrado, apresentado através de uma interface **VOXY Web OS** completa.
+Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados + Vision Agent GPT-5 integrado, apresentado através de uma interface **VOXY Web OS** completa.
+
+> ⚠️ **OpenAI Agents SDK v0.4.2 disponível**: Requer migração (breaking changes). Ver [.safe-zone/migration-plan.md] para detalhes.
 
 > 📚 Para histórico detalhado de implementações e features, consulte [@HISTORY.md](./HISTORY.md)
 
@@ -12,7 +14,7 @@ Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0
 - **Image Management System**: Sistema completo de gerenciamento de imagens integrado ao Web OS
 - **VOXY Web OS**: Interface desktop completa com 13 wallpapers dinâmicos
 - **Professional Drag & Drop**: Smart swapping, collision detection, grid responsivo (6 breakpoints)
-- **VOXY Orchestrator**: OpenAI Agents SDK + LiteLLM Multi-Provider (Claude Sonnet 4.5 default, 400+ modelos configuráveis)
+- **VOXY Orchestrator**: OpenAI Agents SDK + LiteLLM Multi-Provider (400+ modelos configuráveis via .env)
 - **Remember Me System**: Auto-login e persistência de credenciais (100% funcional)
 - **Stack Completa**: FastAPI + Next.js 15 + Supabase + Redis
 - **Performance**: 7-8s análise multimodal, <2s operações standard
@@ -22,7 +24,7 @@ Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0
 ### Core Components
 ```
 VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
-├── Default Model: anthropic/claude-sonnet-4.5 via OpenRouter
+├── Model Selection: 100% configurável via .env (ORCHESTRATOR_MODEL)
 ├── Configuration: 100% via environment variables (ORCHESTRATOR_*)
 ├── Architecture: Factory pattern (models_config.py + llm_factory.py)
 ├── Flexibility: 400+ modelos disponíveis (OpenRouter, OpenAI, Anthropic, Google)
@@ -51,8 +53,8 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 
 ## 📋 Stack Tecnológico
 
-**Backend**: Python 3.9+, Poetry 2.1.4, FastAPI, Uvicorn
-**AI**: OpenAI Agents SDK 0.2.8, LiteLLM Multi-Provider (400+ modelos), Claude Sonnet 4.5 (Orchestrator default)
+**Backend**: Python 3.12+ (min 3.12.3), Poetry 2.1.4, FastAPI, Uvicorn
+**AI**: OpenAI Agents SDK 0.3.3, LiteLLM 1.75.7+ Multi-Provider (400+ modelos configuráveis via .env)
 **Database**: Supabase (PostgreSQL + Auth + Storage)
 **Cache**: Redis 5.0+ (Token blacklisting + Vision cache)
 **Frontend**: Next.js 15.4.6, TypeScript, TailwindCSS, Radix UI
@@ -192,46 +194,69 @@ poetry run python scripts/test_agent.py --interactive
 
 ## 🔐 Configurações de Ambiente
 
-**Essenciais (.env)**:
+**IMPORTANTE - Sistema Model-Agnostic**:
+
+O VOXY Agents é **100% configurável via variáveis de ambiente**. Não há modelos hardcoded no código.
+Todos os modelos (VOXY Orchestrator + 5 Subagentes) são configurados através do arquivo `.env`.
+
+**Para configurar seu ambiente**:
+
+1. **Copie o template**:
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+
+2. **Edite `backend/.env`** com suas credenciais e preferências de modelos
+
+3. **Consulte `.env.example`** para ver:
+   - Variáveis obrigatórias vs. opcionais
+   - Exemplos de configuração (não são requisitos!)
+   - Comentários sobre cada parâmetro
+   - Sugestões de modelos por caso de uso
+
+**Categorias de Configuração**:
+
 ```bash
-# JWT + Remember Me
-SUPABASE_JWT_EXPIRATION_HOURS=24
-SUPABASE_JWT_SECRET=your_jwt_secret_here
-REDIS_URL=redis://localhost:6379
+# 1. API Keys & Authentication
+OPENROUTER_API_KEY=          # Para 400+ modelos via OpenRouter
+OPENAI_API_KEY=              # Para modelos OpenAI diretos
+ANTHROPIC_API_KEY=           # Para Claude direto
+GOOGLE_API_KEY=              # Para Gemini direto
 
-# OpenRouter API (LiteLLM)
-OPENROUTER_API_KEY=sk-or-...
-OR_SITE_URL=https://voxy.ai              # [OPTIONAL]
-OR_APP_NAME=VOXY Agents                  # [OPTIONAL]
+# 2. Database & Cache
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_KEY=
+SUPABASE_JWT_SECRET=
+REDIS_URL=
 
-# VOXY Orchestrator (LiteLLM Multi-Provider)
-ORCHESTRATOR_PROVIDER=openrouter                      # openrouter | openai | anthropic
-ORCHESTRATOR_MODEL=anthropic/claude-sonnet-4.5       # Main orchestrator model
-ORCHESTRATOR_MAX_TOKENS=4000
-ORCHESTRATOR_TEMPERATURE=0.3                          # Moderate for reasoning
-ORCHESTRATOR_REASONING_EFFORT=medium                  # minimal | low | medium | high
-ORCHESTRATOR_INCLUDE_USAGE=true
-ORCHESTRATOR_ENABLE_STREAMING=false                   # Future feature flag
+# 3. VOXY Orchestrator
+ORCHESTRATOR_PROVIDER=       # openrouter | openai | anthropic | google
+ORCHESTRATOR_MODEL=          # Qualquer modelo suportado pelo provider
+ORCHESTRATOR_MAX_TOKENS=
+ORCHESTRATOR_TEMPERATURE=
+ORCHESTRATOR_REASONING_EFFORT=
 
-# Calculator Agent (Grok Code Fast 1)
-CALCULATOR_PROVIDER=openrouter
-CALCULATOR_MODEL=x-ai/grok-code-fast-1
-CALCULATOR_MAX_TOKENS=2000
-CALCULATOR_TEMPERATURE=0.1
+# 4. Subagentes (Calculator, Corrector, Translator, Weather, Vision)
+# Cada um configurável independentemente:
+<AGENT>_PROVIDER=            # openrouter | openai | anthropic | google
+<AGENT>_MODEL=               # Qualquer modelo do provider
+<AGENT>_MAX_TOKENS=
+<AGENT>_TEMPERATURE=
 
-# Weather Agent
-OPENWEATHER_API_KEY=your_openweather_key
-
-# Vision Agent (LiteLLM Multi-Provider)
-VISION_PROVIDER=openrouter                    # openrouter | openai | anthropic
-VISION_MODEL=openai/gpt-4o                    # Multimodal model
-VISION_MAX_TOKENS=2000
-VISION_TEMPERATURE=0.1
-VISION_REASONING_EFFORT=medium                # minimal | low | medium | high
-VISION_CACHE_TTL=600                          # Cache TTL in seconds
-VISION_INCLUDE_USAGE=true
-ENABLE_VISION_POSTPROCESSING=true             # Feature flag
+# 5. External APIs
+OPENWEATHER_API_KEY=         # Para Weather Agent
 ```
+
+**⚠️ Nenhuma Referência Hardcoded**:
+- ❌ Código NÃO contém modelos específicos
+- ✅ Tudo vem do `.env`
+- ✅ Trocar modelos = apenas editar `.env` (zero mudanças de código)
+- ✅ Suporta 400+ modelos via LiteLLM Multi-Provider
+
+**Consulte sempre**:
+- `backend/.env.example` - Template oficial com exemplos comentados
+- [Seção "Consultando Configuração de Modelos Atual"](#🔧-consultando-configuração-de-modelos-atual) acima
 
 ## 📋 Comandos Essenciais
 
