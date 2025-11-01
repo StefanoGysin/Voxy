@@ -2,7 +2,20 @@
 
 ## 🎯 Visão Geral
 
-**VOXY Agents Backend** é um sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.2.8. Implementa orquestração inteligente com VOXY coordenando subagentes especializados através da arquitetura **LiteLLM Multi-Provider**.
+**VOXY Agents Backend** é um sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados através da arquitetura **LiteLLM Multi-Provider**.
+
+## Requisitos
+
+- Python 3.12+ (minimo 3.12.3)
+- Poetry 2.1.4
+- OpenAI Agents SDK 0.3.3
+- LiteLLM 1.75.7+
+- FastAPI 0.115.14
+- Next.js 15.4.6
+- Node.js 18+ (para frontend)
+- Redis 5.0+
+
+> Nota: OpenAI Agents SDK v0.4.2 esta disponivel, mas a migracao ainda nao foi realizada. Consulte `.safe-zone/migration-plan.md` para detalhes.
 
 ### ✨ Características Principais
 
@@ -16,11 +29,11 @@
 
 ### 🏗️ Stack Tecnológico
 
-- **Runtime**: Python 3.9+
+- **Runtime**: Python 3.12+ (minimo 3.12.3)
 - **Package Manager**: Poetry 2.1.4
-- **Web Framework**: FastAPI + Uvicorn
-- **AI Framework**: OpenAI Agents SDK 0.2.8
-- **LLM Gateway**: LiteLLM (400+ modelos)
+- **Web Framework**: FastAPI 0.115.14 + Uvicorn
+- **AI Framework**: OpenAI Agents SDK 0.3.3
+- **LLM Gateway**: LiteLLM 1.75.7+ (400+ modelos)
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
 - **Cache**: Redis 5.0+
 - **Testing**: pytest + pytest-asyncio

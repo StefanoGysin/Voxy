@@ -2,6 +2,19 @@
 
 Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provider, 400+ modelos) coordenando 4 subagentes especializados. Interface profissional com session management e dashboard em tempo real.
 
+## Requisitos
+
+- Python 3.12+ (minimo 3.12.3)
+- Poetry 2.1.4
+- OpenAI Agents SDK 0.3.3
+- LiteLLM 1.75.7+
+- FastAPI 0.115.14
+- Next.js 15.4.6
+- Node.js 18+ (para frontend)
+- Redis 5.0+
+
+> Nota: OpenAI Agents SDK v0.4.2 esta disponivel, mas a migracao ainda nao foi realizada. Consulte `.safe-zone/migration-plan.md` para detalhes.
+
 ## 🚀 Status Atual
 
 **✅ Sistema 100% Funcional + LiteLLM Multi-Provider Support (2025-10-27)**
@@ -26,14 +39,14 @@ Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provide
 ### Backend (Python + OpenAI Agents SDK)
 - **VOXY Orchestrator**: LiteLLM Multi-Provider (400+ modelos configuráveis via .env, default: anthropic/claude-sonnet-4.5)
 - **4 Subagentes Configuráveis via LiteLLM**: Calculator, Corrector, Translator, Weather (400+ modelos disponíveis)
-- **Stack**: Python 3.9+, Poetry, FastAPI, Supabase, Redis
+- **Stack**: Python 3.12+ (minimo 3.12.3), Poetry 2.1.4, FastAPI 0.115.14, Supabase, Redis
 - **API Consolidada**: 7 módulos (/auth, /chat, /sessions, /messages, /images, /test) + Modelos centralizados
 - **Isolated Testing**: SubagentTester para debug rápido (CLI + HTTP + Programático)
 - **Arquitetura DRY**: Modelos Pydantic compartilhados em `api/models.py`
 - **Segurança**: JWT + JTI (24-hour expiration) + Redis token blacklisting
 - **Auth Avançado**: Remember Me + Real logout + Token invalidation
 
-### Frontend (Next.js 15 + TypeScript)
+### Frontend (Next.js 15.4.6 + TypeScript)
 - **VOXY Web OS**: Interface desktop completa com 13 wallpapers dinâmicos
 - **Image Management System**: 5 componentes React + API client + página dedicada
 - **Professional Drag & Drop**: Smart swapping, collision detection, grid responsivo
@@ -41,7 +54,7 @@ Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provide
 - **Advanced Search**: Busca cross-session com filtros e relevance
 - **Chat Interface**: Tempo real seguro com identificação por agente
 - **Remember Me**: Auto-login, preenchimento automático, checkbox operacional
-- **Stack**: Next.js 15, TypeScript, TailwindCSS, Zustand, Radix UI, @dnd-kit
+- **Stack**: Next.js 15.4.6, TypeScript, TailwindCSS, Zustand, Radix UI, @dnd-kit
 
 ## 🛠️ Instalação Rápida
 
