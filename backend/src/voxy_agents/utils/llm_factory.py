@@ -6,9 +6,11 @@ through LiteLLM (OpenRouter, OpenAI, Anthropic, etc.).
 """
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
+from agents import ModelSettings
 from agents.extensions.models.litellm_model import LitellmModel
+from openai.types.shared import Reasoning
 
 from ..config.models_config import SubagentModelConfig
 
@@ -262,3 +264,42 @@ def create_model_with_reasoning(
     reasoning_params = get_reasoning_params(config)
 
     return model, reasoning_params
+
+
+def build_model_settings(
+    config: SubagentModelConfig,
+    reasoning_params: Optional[dict[str, Any]] = None,
+) -> ModelSettings:
+    """
+    Build ModelSettings for a subagent, applying reasoning parameters when available.
+
+    Args:
+        config: Subagent model configuration.
+        reasoning_params: Optional reasoning parameters extracted from configuration.
+
+    Returns:
+        ModelSettings configured with usage tracking, temperature, max_tokens, and
+        provider-specific reasoning parameters.
+    """
+    extra_args: Optional[dict[str, Any]] = None
+    reasoning_setting: Optional[Reasoning] = None
+
+    if reasoning_params:
+        # Shallow copy to avoid mutating caller state
+        extra_args = dict(reasoning_params)
+
+        # Convert OpenAI reasoning effort into ModelSettings.reasoning
+        effort = extra_args.pop("reasoning_effort", None)
+        if effort:
+            reasoning_setting = Reasoning(effort=effort)
+
+        if not extra_args:
+            extra_args = None
+
+    return ModelSettings(
+        include_usage=config.include_usage,
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+        reasoning=reasoning_setting,
+        extra_args=extra_args,
+    )

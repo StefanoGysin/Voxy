@@ -135,9 +135,14 @@ def configure_logger():
     """
     # Ler configuração do ambiente
     env = os.getenv("VOXY_ENV", "development")
-    log_level = os.getenv("VOXY_LOG_LEVEL", "DEBUG" if env == "development" else "INFO")
+    log_level_str = os.getenv(
+        "VOXY_LOG_LEVEL", "DEBUG" if env == "development" else "INFO"
+    )
     log_dir = Path(os.getenv("VOXY_LOG_DIR", "logs"))
     enable_json = os.getenv("VOXY_LOG_JSON", "false").lower() == "true"
+
+    # Converter para variável global acessível nos filtros
+    is_debug_mode = log_level_str == "DEBUG"
 
     # Criar diretório de logs
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -174,7 +179,7 @@ def configure_logger():
         event = record["extra"].get("event", "")
 
         # Se for evento STARTUP e não estiver em DEBUG, omitir cabeçalho
-        if event.startswith("STARTUP|") and log_level != "DEBUG":
+        if event.startswith("STARTUP|") and not is_debug_mode:
             # Visual limpo: apenas a mensagem
             return record["message"] + "\n"
 
@@ -192,35 +197,122 @@ def configure_logger():
         else:
             return f"<green>{time_str}</green> | <level>{level: <8}</level> | <cyan>{event_display}</cyan> | {message}\n"
 
+    # Filtro para logs técnicos em modo INFO (voxy_main.log + console limpos)
+    def _filter_clean_logs(record):
+        """
+        Filtra eventos técnicos em modo INFO para manter voxy_main.log limpo.
+
+        Eventos filtrados (só aparecem em DEBUG):
+        - REASONING_CONFIG|* (config loading técnico)
+        - GENERAL (logs de bibliotecas externas como uvicorn)
+        - LOGGER_INIT (inicialização do próprio logger)
+        - VOXY_ORCHESTRATOR|REASONING_CONFIG (config do orchestrator)
+
+        Em DEBUG mode: todos os eventos passam (return True)
+        Em INFO mode: eventos técnicos são filtrados (return False)
+        """
+        if is_debug_mode:
+            # DEBUG mode: mostrar tudo
+            return True
+
+        # INFO mode: filtrar eventos técnicos
+        event = record["extra"].get("event", "GENERAL")
+
+        # Lista de prefixos de eventos técnicos para filtrar
+        technical_events = [
+            "REASONING_CONFIG",  # Config loading (TRANSLATOR_LOADED, etc.)
+            "GENERAL",  # Logs externos (uvicorn, litellm, etc.)
+            "LOGGER_INIT",  # Inicialização do logger
+        ]
+
+        # Filtros específicos adicionais
+        # VOXY_ORCHESTRATOR|REASONING_CONFIG (não todo VOXY_ORCHESTRATOR|*)
+        if event == "VOXY_ORCHESTRATOR|REASONING_CONFIG":
+            return False
+
+        # Filtrar eventos técnicos
+        for tech_event in technical_events:
+            if event.startswith(tech_event):
+                return False  # Não mostrar em INFO mode
+
+        # Passar todos os outros eventos importantes
+        return True
+
+    # Filtro combinado para console e voxy_main.log (mask + clean logs)
+    def _combined_filter(record):
+        """Combina filtro de dados sensíveis + filtro de logs técnicos."""
+        return mask_sensitive_data(record) and _filter_clean_logs(record)
+
     # SINK 1: Console (desenvolvimento apenas)
     if env == "development":
         # diagnose=True apenas em dev para tracebacks ricos
         # Formatador custom omite cabeçalho em STARTUP quando não está em DEBUG
+        # Filtro aplicado: logs limpos em INFO, completos em DEBUG
         logger.add(
             sys.stdout,
             format=_format_startup_visual,  # Custom formatter
-            level=log_level,
+            level=log_level_str,
             colorize=True,
             enqueue=False,  # Console não precisa de enqueue
             diagnose=True,  # Tracebacks ricos em dev
-            filter=mask_sensitive_data,
+            filter=_combined_filter,  # Filtro duplo (mask + clean)
         )
 
+    # Formatador custom para voxy_main.log (logs limpos em INFO)
+    def _format_main_log(record):
+        """
+        Formatador condicional para voxy_main.log.
+
+        - DEBUG mode: Mostra event prefix completo (e.g., STARTUP|SUBAGENTS)
+        - INFO/WARNING/ERROR: Omite event prefix (logs limpos)
+
+        Exemplo:
+        DEBUG: 2025-11-08 04:47:09.512 | INFO | STARTUP|SUBAGENTS | 📦 Registering...
+        INFO:  2025-11-08 04:47:09.512 | INFO | 📦 Registering...
+        """
+        time_str = record["time"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        level = record["level"].name
+        event = record["extra"].get("event", "GENERAL")
+        message = record["message"]
+
+        # Se estiver em DEBUG mode, mostrar event prefix
+        if is_debug_mode:
+            return f"{time_str} | {level: <8} | {event} | {message}\n"
+        else:
+            # INFO mode: logs limpos sem event prefix
+            return f"{time_str} | {level: <8} | {message}\n"
+
     # SINK 2: Arquivo principal (INFO em produção, log_level em dev)
-    main_level = "INFO" if env == "production" else log_level
+    # Logs limpos sem event prefixes quando VOXY_LOG_LEVEL=INFO
+    # Filtro duplo: mask_sensitive_data + _filter_clean_logs
+    main_level = "INFO" if env == "production" else log_level_str
 
     logger.add(
         log_dir / "voxy_main.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[event]} | {message}",
+        format=_format_main_log,  # Formatador custom (clean logs em INFO)
         level=main_level,
         rotation="10 MB",
         retention=5,
         compression="zip",
         enqueue=True,  # CRÍTICO para async safety em produção
+        filter=_combined_filter,  # Filtro duplo
+    )
+
+    # SINK 3: Arquivo DEBUG (sempre ativo, independente de VOXY_LOG_LEVEL)
+    # Captura TODOS os logs em nível DEBUG com event prefixes completos
+    # Útil para troubleshooting sem mudar VOXY_LOG_LEVEL
+    logger.add(
+        log_dir / "voxy_debug.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[event]} | {message}",
+        level="DEBUG",  # Sempre DEBUG
+        rotation="25 MB",  # Maior pois captura mais logs
+        retention=3,  # Menos retenção (volume maior)
+        compression="zip",
+        enqueue=True,
         filter=mask_sensitive_data,
     )
 
-    # SINK 3: Erros com diagnóstico (diagnose apenas em dev)
+    # SINK 4: Erros com diagnóstico (diagnose apenas em dev)
     logger.add(
         log_dir / "voxy_error.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[event]} | {message}",
@@ -234,7 +326,7 @@ def configure_logger():
         filter=mask_sensitive_data,
     )
 
-    # SINK 4: Performance (isolado) - usa formatador custom
+    # SINK 5: Performance (isolado) - usa formatador custom
     logger.add(
         log_dir / "voxy_performance.log",
         format=_format_performance,
@@ -247,7 +339,7 @@ def configure_logger():
         enqueue=True,
     )
 
-    # SINK 5: Audit trail (90 dias de retenção)
+    # SINK 6: Audit trail (90 dias de retenção)
     logger.add(
         log_dir / "voxy_audit.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {extra[event]} | {extra[user_id]} | {extra[action]} | {message}",
@@ -261,7 +353,7 @@ def configure_logger():
         diagnose=False,
     )
 
-    # SINK 6: JSON estruturado (opcional)
+    # SINK 7: JSON estruturado (opcional)
     if enable_json:
         logger.add(
             log_dir / "voxy_structured.json",
@@ -275,9 +367,10 @@ def configure_logger():
             filter=mask_sensitive_data,
         )
 
-    # SINK 7: Sentry (se configurado)
+    # SINK 8: Sentry (se configurado)
     sentry_dsn = os.getenv("VOXY_LOG_SENTRY_DSN")
-    sinks_count = 6 if enable_json else 5
+    # Atualizado: agora temos 7 sinks base (console, main, debug, error, perf, audit, json)
+    sinks_count = 7 if enable_json else 6
 
     if sentry_dsn:
         try:
@@ -293,5 +386,5 @@ def configure_logger():
 
     # Log de inicialização (correção: metadados agora aparecem via bind)
     logger.bind(
-        event="LOGGER_INIT", env=env, log_level=log_level, sinks=sinks_count
+        event="LOGGER_INIT", env=env, log_level=log_level_str, sinks=sinks_count
     ).info("Loguru configurado com sucesso")

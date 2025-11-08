@@ -63,10 +63,6 @@ class VOXYSystem:
 
     def _setup_subagents(self):
         """Register all subagents as tools for VOXY."""
-        logger.bind(event="STARTUP|SUBAGENTS").info(
-            "📦 Registering Subagents (4 agents + Vision)"
-        )
-
         # Register translator subagent
         self.orchestrator.register_subagent(
             name="translator",

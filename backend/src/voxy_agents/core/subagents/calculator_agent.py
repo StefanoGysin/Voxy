@@ -8,11 +8,11 @@ Agora configurável via LiteLLM para suporte a múltiplos providers (OpenRouter,
 Migração Loguru - Sprint 5
 """
 
-from agents import Agent, ModelSettings
+from agents import Agent
 from loguru import logger
 
 from ...config.models_config import load_calculator_config
-from ...utils.llm_factory import create_litellm_model
+from ...utils.llm_factory import build_model_settings, create_model_with_reasoning
 
 
 class CalculatorAgent:
@@ -50,17 +50,15 @@ class CalculatorAgent:
         config = load_calculator_config()
 
         # Create LiteLLM model instance via factory
-        model = create_litellm_model(config)
+        model, reasoning_params = create_model_with_reasoning(config)
+        model_settings = build_model_settings(config, reasoning_params)
 
         # Create agent with configured model
         self.agent = Agent(
             name="Subagente Calculadora VOXY",
             model=model,
             instructions=self._get_instructions(),
-            model_settings=ModelSettings(
-                include_usage=config.include_usage,
-                temperature=config.temperature,
-            ),
+            model_settings=model_settings,
         )
 
         # Store config for reference

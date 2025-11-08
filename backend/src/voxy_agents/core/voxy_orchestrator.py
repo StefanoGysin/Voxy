@@ -16,16 +16,20 @@ Migração Loguru - Sprint 4 + Sprint Multi-Agent Hierarchical Logging
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from agents import Agent, ModelSettings, Runner, function_tool
 from loguru import logger
 from openai import AsyncOpenAI
 
 from ..config.settings import settings
+from ..utils.universal_reasoning_capture import ReasoningContent
 from .database.supabase_integration import SupabaseSession
 from .guardrails.safety_check import SafetyChecker
 from .subagents.vision_agent import get_vision_agent
+
+if TYPE_CHECKING:
+    from ..utils.usage_tracker import UsageMetrics
 
 
 @dataclass
@@ -524,7 +528,7 @@ class VoxyOrchestrator:
         invocations: list[ToolInvocation],
         total_time: float,
         trace_id: str,
-        reasoning_list: Optional[list[dict[str, str]]] = None,
+        reasoning_list: Optional[list[ReasoningContent]] = None,
     ) -> str:
         """
         Formata log hierárquico mostrando VOXY delegando para subagentes + reasoning.
@@ -575,22 +579,32 @@ class VoxyOrchestrator:
                 f"   {continuation}├─ 📥 Output: \"{inv.output}{'...' if len(inv.output) >= 200 else ''}\""
             )
 
-            # Add reasoning if available for this invocation
+            # Add reasoning only if explicitly attributed to the same subagent
             if reasoning_list:
-                for reasoning_item in reasoning_list:
-                    # ReasoningContent is a dataclass, not a dict - access attributes directly
+                matching_reasoning = [
+                    item
+                    for item in reasoning_list
+                    if isinstance(item, ReasoningContent)
+                    and item.agent_role == "subagent"
+                    and (
+                        (item.call_id and item.call_id == getattr(inv, "call_id", None))
+                        or item.agent_name == inv.agent_name
+                        or (item.tool_name and item.tool_name == inv.tool_name)
+                    )
+                ]
+
+                for reasoning_item in matching_reasoning:
                     reasoning_text = (
                         reasoning_item.thinking_text
                         or reasoning_item.thought_summary
                         or ""
                     )
                     if reasoning_text:
-                        # Truncate reasoning to 150 chars for hierarchical log
                         reasoning_preview = reasoning_text[:150]
                         if len(reasoning_text) > 150:
                             reasoning_preview += "..."
                         lines.append(
-                            f'   {continuation}├─ 🧠 Reasoning: "{reasoning_preview}"'
+                            f'   {continuation}├─ 🧠 Subagent reasoning: "{reasoning_preview}"'
                         )
 
             lines.append(f"   {continuation}└─ ✓ Completed")
@@ -603,6 +617,187 @@ class VoxyOrchestrator:
         lines.append(f"   └─ ✓ Response compiled in {total_time:.2f}s")
 
         return "\n".join(lines)
+
+    def _log_reasoning_timeline(
+        self,
+        trace_id: str,
+        reasoning_entries: list[ReasoningContent],
+        invocations: list[ToolInvocation],
+        usage: Optional["UsageMetrics"],
+        cost_estimate: Optional[float] = None,
+    ) -> None:
+        """Structured reasoning timeline highlighting orchestrator vs subagents."""
+        if not reasoning_entries and not invocations:
+            logger.bind(event="VOXY_ORCHESTRATOR|REASONING_TIMELINE").debug(
+                "Skipping reasoning timeline (no entries)",
+                trace_id=trace_id,
+            )
+            return
+
+        total_reasoning_tokens = sum(
+            entry.reasoning_tokens or 0 for entry in reasoning_entries
+        )
+        total_tokens = usage.total_tokens if usage else None
+        reasoning_blocks = len(reasoning_entries)
+        delegation_count = len(invocations)
+
+        lines: list[str] = [f"🧠 [TRACE:{trace_id}] Reasoning Timeline"]
+        lines.append(
+            f"   ├─ Blocks: {reasoning_blocks} | Delegations: {delegation_count}"
+        )
+
+        if usage:
+            lines.append(
+                f"   ├─ Total tokens: {usage.total_tokens:,} "
+                f"(input={usage.input_tokens:,}, output={usage.output_tokens:,})"
+            )
+
+        if total_reasoning_tokens:
+            ratio = (
+                f"{total_reasoning_tokens / total_tokens:.1%}"
+                if total_tokens
+                else "n/a"
+            )
+            lines.append(
+                f"   ├─ Reasoning tokens: {total_reasoning_tokens:,} "
+                f"({ratio} of total)"
+            )
+        else:
+            lines.append("   ├─ Reasoning tokens: N/A")
+
+        if cost_estimate is not None:
+            lines.append(f"   ├─ Cost (est.): ${cost_estimate:.6f}")
+            if total_reasoning_tokens and total_tokens:
+                reasoning_cost = cost_estimate * (total_reasoning_tokens / total_tokens)
+                lines.append(f"   ├─ Reasoning cost (est.): ${reasoning_cost:.6f}")
+
+        lines.append("   │")
+
+        orchestrator_entries = [
+            entry for entry in reasoning_entries if entry.agent_role == "orchestrator"
+        ]
+
+        lines.append("   ├─ 🤖 VOXY Orchestrator")
+        if orchestrator_entries:
+            for idx, entry in enumerate(orchestrator_entries, start=1):
+                rid = entry.reasoning_id or f"RID-{trace_id}-{idx:02d}"
+                entry.reasoning_id = rid
+                lines.append(f"   │  ├─ Block: {rid}")
+
+                timestamp_str = (
+                    entry.timestamp.strftime("%H:%M:%S.%f")[:-3]
+                    if entry.timestamp
+                    else "N/A"
+                )
+                lines.append(f"   │  ├─ Timestamp: {timestamp_str}")
+
+                if entry.reasoning_tokens is not None:
+                    lines.append(
+                        f"   │  ├─ Reasoning tokens: {entry.reasoning_tokens:,}"
+                    )
+                if entry.reasoning_effort:
+                    lines.append(f"   │  ├─ Effort: {entry.reasoning_effort}")
+                if entry.extraction_time_ms:
+                    lines.append(
+                        f"   │  ├─ Capture time: {entry.extraction_time_ms:.1f}ms"
+                    )
+
+                thinking_text = entry.thinking_text or entry.thought_summary or ""
+                if thinking_text:
+                    preview = thinking_text.strip()
+                    if len(preview) > 400:
+                        preview = preview[:400] + "..."
+                    preview_lines = preview.split("\n")
+                    lines.append("   │  └─ 💭 Thinking:")
+                    for line in preview_lines[:20]:
+                        lines.append(f"   │     {line}")
+                    if len(preview_lines) > 20:
+                        lines.append("   │     [...]")
+                else:
+                    lines.append("   │  └─ 💭 Thinking: (não fornecido)")
+        else:
+            lines.append("   │  └─ (sem reasoning capturado)")
+
+        lines.append("   │")
+        lines.append("   └─ 🔧 Subagent Delegations")
+
+        if invocations:
+            subagent_reasoning = [
+                entry for entry in reasoning_entries if entry.agent_role == "subagent"
+            ]
+            for idx, inv in enumerate(invocations):
+                is_last = idx == len(invocations) - 1
+                branch = "      └─" if is_last else "      ├─"
+                continuation = "         " if is_last else "      │  "
+
+                lines.append(
+                    f"{branch} {inv.agent_name} (tool={inv.tool_name}, call_id={inv.call_id})"
+                )
+                lines.append(f"{continuation}├─ Model: {inv.model}")
+                if inv.config:
+                    config_parts = [f"{k}={v}" for k, v in inv.config.items()]
+                    lines.append(f"{continuation}├─ Config: {', '.join(config_parts)}")
+                input_preview = ""
+                if inv.input_args:
+                    first_value = next(iter(inv.input_args.values()), "")
+                    input_preview = str(first_value)
+                if input_preview:
+                    preview = (
+                        input_preview[:80] + "..."
+                        if len(input_preview) > 80
+                        else input_preview
+                    )
+                    lines.append(f'{continuation}├─ Input: "{preview}"')
+                if inv.output:
+                    output_preview = (
+                        inv.output[:120] + "..."
+                        if len(inv.output) > 120
+                        else inv.output
+                    )
+                    lines.append(f'{continuation}├─ Output: "{output_preview}"')
+
+                matching_reasoning = [
+                    entry
+                    for entry in subagent_reasoning
+                    if (entry.call_id and entry.call_id == inv.call_id)
+                    or entry.agent_name == inv.agent_name
+                    or (entry.tool_name and entry.tool_name == inv.tool_name)
+                ]
+                for entry in matching_reasoning:
+                    rid = entry.reasoning_id or f"RID-{trace_id}-S{idx+1:02d}"
+                    entry.reasoning_id = rid
+                    token_info = (
+                        f"{entry.reasoning_tokens:,}"
+                        if entry.reasoning_tokens is not None
+                        else "N/A"
+                    )
+                    lines.append(f"{continuation}├─ 🧠 Reasoning ID: {rid}")
+                    lines.append(f"{continuation}├─ Reasoning tokens: {token_info}")
+                    thinking_text = entry.thinking_text or entry.thought_summary or ""
+                    if thinking_text:
+                        preview = thinking_text.strip()
+                        if len(preview) > 200:
+                            preview = preview[:200] + "..."
+                        lines.append(f"{continuation}└─ 💭 Thinking: {preview}")
+                    else:
+                        lines.append(f"{continuation}└─ 💭 Thinking: (não fornecido)")
+
+                if not matching_reasoning:
+                    derived_reasoning = inv.output or ""
+                    if derived_reasoning:
+                        preview = derived_reasoning.strip()
+                        if len(preview) > 200:
+                            preview = preview[:200] + "..."
+                        lines.append(
+                            f"{continuation}├─ 🧠 Reasoning (derived from output)"
+                        )
+                        lines.append(f"{continuation}└─ 💭 Thinking: {preview}")
+                    else:
+                        lines.append(f"{continuation}└─ 🧠 Reasoning: N/A")
+        else:
+            lines.append("      └─ Nenhum subagente invocado")
+
+        logger.bind(event="VOXY_ORCHESTRATOR|REASONING_TIMELINE").info("\n".join(lines))
 
     async def chat(
         self,
@@ -760,11 +955,19 @@ IMPORTANTE: Seja direto, use tom brasileiro amigável, e use emojis quando aprop
                     # Track token usage for observability and cost estimation
                     from ..utils.usage_tracker import (
                         SubagentInfo,
+                        calculate_cost_estimate,
                         extract_usage,
                         log_usage_metrics,
                     )
 
                     voxy_usage = extract_usage(result)
+                    voxy_cost_estimate = (
+                        calculate_cost_estimate(
+                            voxy_usage, self.config.get_litellm_model_path()
+                        )
+                        if voxy_usage
+                        else None
+                    )
 
                     # Build subagent info list from invocations (PATH 1 may have additional subagents)
                     subagents_called = []
@@ -807,6 +1010,24 @@ IMPORTANTE: Seja direto, use tom brasileiro amigável, e use emojis quando aprop
                         },
                         subagents_called=subagents_called if subagents_called else None,
                     )
+
+                    from voxy_agents.utils.universal_reasoning_capture import (
+                        clear_reasoning as clear_universal_reasoning,
+                    )
+                    from voxy_agents.utils.universal_reasoning_capture import (
+                        get_captured_reasoning as get_universal_reasoning,
+                    )
+
+                    reasoning_list = get_universal_reasoning()
+                    self._log_reasoning_timeline(
+                        trace_id=trace_id,
+                        reasoning_entries=reasoning_list or [],
+                        invocations=invocations,
+                        usage=voxy_usage,
+                        cost_estimate=voxy_cost_estimate,
+                    )
+                    if reasoning_list:
+                        clear_universal_reasoning()
 
                     # Combine Vision + VOXY tools
                     tools_used = ["vision_agent"] + voxy_tools
@@ -944,6 +1165,15 @@ IMPORTANTE: Seja direto, use tom brasileiro amigável, e use emojis quando aprop
                             response=item_dict,
                             provider=self.config.provider,
                             model=self.config.get_litellm_model_path(),
+                            metadata={
+                                "agent_name": "VOXY Orchestrator",
+                                "agent_role": "orchestrator",
+                                "trace_id": trace_id,
+                                "sequence_index": idx + 1,
+                                "call_id": item_dict.get("call_id"),
+                                "tool_name": item_dict.get("tool_name")
+                                or item_dict.get("name"),
+                            },
                         )
 
             # Extract response - SDK now automatically manages session state
@@ -965,11 +1195,19 @@ IMPORTANTE: Seja direto, use tom brasileiro amigável, e use emojis quando aprop
             # Track token usage for PATH 2 (standard flow)
             from ..utils.usage_tracker import (
                 SubagentInfo,
+                calculate_cost_estimate,
                 extract_usage,
                 log_usage_metrics,
             )
 
             voxy_usage = extract_usage(result)
+            voxy_cost_estimate = (
+                calculate_cost_estimate(
+                    voxy_usage, self.config.get_litellm_model_path()
+                )
+                if voxy_usage
+                else None
+            )
 
             # Build subagent info list from invocations
             subagents_called = []
@@ -1026,88 +1264,14 @@ IMPORTANTE: Seja direto, use tom brasileiro amigável, e use emojis quando aprop
 
             reasoning_list = get_universal_reasoning()
 
-            # Determine context (VOXY or Subagent) for reasoning attribution
-            reasoning_context = "VOXY"
-            if invocations:
-                # If subagents were invoked, reasoning may come from them
-                subagent_names = [
-                    TOOL_TO_AGENT_MAP.get(inv.tool_name, inv.tool_name)
-                    for inv in invocations
-                ]
-                if len(subagent_names) == 1:
-                    reasoning_context = subagent_names[0].upper()
-                elif len(subagent_names) > 1:
-                    reasoning_context = f"VOXY + {', '.join(subagent_names)}"
+            self._log_reasoning_timeline(
+                trace_id=trace_id,
+                reasoning_entries=reasoning_list or [],
+                invocations=invocations,
+                usage=voxy_usage,
+                cost_estimate=voxy_cost_estimate,
+            )
 
-            # Log summary of captured reasoning
-            if reasoning_list:
-                logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").info(
-                    f"✅ Universal Reasoning: Captured {len(reasoning_list)} block(s) [Context: {reasoning_context}]"
-                )
-
-                # Log each reasoning block with hierarchical formatting
-                for idx, reasoning_content in enumerate(reasoning_list):
-                    thinking_text = (
-                        reasoning_content.thinking_text
-                        or reasoning_content.thought_summary
-                        or ""
-                    )
-
-                    # Format reasoning in hierarchical structure
-                    reasoning_log = f"🧠 [REASONING {idx + 1}/{len(reasoning_list)}]\n"
-                    reasoning_log += f"   ├─ Context: {reasoning_context}\n"
-                    reasoning_log += f"   ├─ Provider: {reasoning_content.provider}\n"
-                    reasoning_log += f"   ├─ Model: {reasoning_content.model}\n"
-                    reasoning_log += (
-                        f"   ├─ Strategy: {reasoning_content.extraction_strategy}\n"
-                    )
-
-                    if reasoning_content.reasoning_tokens:
-                        reasoning_log += (
-                            f"   ├─ Tokens: {reasoning_content.reasoning_tokens}\n"
-                        )
-
-                    if reasoning_content.reasoning_effort:
-                        reasoning_log += (
-                            f"   ├─ Effort: {reasoning_content.reasoning_effort}\n"
-                        )
-
-                    if thinking_text:
-                        # Truncate and format thinking text
-                        preview = (
-                            thinking_text[:400]
-                            if len(thinking_text) > 400
-                            else thinking_text
-                        )
-                        preview_lines = preview.split("\n")
-
-                        reasoning_log += f"   ├─ Length: {len(thinking_text)} chars\n"
-                        reasoning_log += "   └─ 💭 Thinking:\n"
-
-                        # Format each line of thinking with proper indentation
-                        for i, line in enumerate(preview_lines[:50]):  # Max 50 lines
-                            if (
-                                i == len(preview_lines[:50]) - 1
-                                and len(thinking_text) > 2000
-                            ):
-                                reasoning_log += f"      {line}...\n"
-                            else:
-                                reasoning_log += f"      {line}\n"
-
-                        if len(preview_lines) > 50 or len(thinking_text) > 2000:
-                            reasoning_log += (
-                                f"      [...{len(thinking_text) - 2000} chars omitted]"
-                            )
-
-                    logger.bind(event="VOXY_ORCHESTRATOR|REASONING_CAPTURED").info(
-                        reasoning_log
-                    )
-            else:
-                logger.bind(event="VOXY_ORCHESTRATOR|REASONING_SUMMARY").debug(
-                    "No reasoning content captured (model may not support reasoning or reasoning disabled)"
-                )
-
-            # Clear buffer for next call
             if reasoning_list:
                 clear_universal_reasoning()
 

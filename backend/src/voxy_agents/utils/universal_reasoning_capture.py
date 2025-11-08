@@ -36,6 +36,14 @@ class ReasoningContent:
     model: str
     timestamp: datetime
     extraction_strategy: str  # api, response_field, logs, stats
+    agent_name: str = "VOXY Orchestrator"
+    agent_role: str = "orchestrator"  # orchestrator | subagent
+    parent_agent: Optional[str] = None
+    trace_id: Optional[str] = None
+    call_id: Optional[str] = None
+    tool_name: Optional[str] = None
+    sequence_index: Optional[int] = None
+    reasoning_id: Optional[str] = None
 
     # Content (pelo menos um deve estar presente)
     thinking_text: Optional[str] = None  # Texto do reasoning/thinking
@@ -63,6 +71,14 @@ class ReasoningContent:
             "model": self.model,
             "timestamp": self.timestamp.isoformat(),
             "extraction_strategy": self.extraction_strategy,
+            "agent_name": self.agent_name,
+            "agent_role": self.agent_role,
+            "parent_agent": self.parent_agent,
+            "trace_id": self.trace_id,
+            "call_id": self.call_id,
+            "tool_name": self.tool_name,
+            "sequence_index": self.sequence_index,
+            "reasoning_id": self.reasoning_id,
             "thinking_text": self.thinking_text,
             "thinking_blocks": self.thinking_blocks,
             "thought_summary": self.thought_summary,
@@ -678,6 +694,25 @@ class UniversalReasoningCapture:
             f"Universal reasoning capture initialized with {len(self.extractors)} extractors"
         )
 
+    @staticmethod
+    def _apply_metadata(
+        reasoning: ReasoningContent, metadata: Optional[dict[str, Any]]
+    ) -> None:
+        """Enriquece ReasoningContent com metadata adicional."""
+        if not metadata:
+            return
+
+        reasoning.agent_name = metadata.get("agent_name", reasoning.agent_name)
+        reasoning.agent_role = metadata.get("agent_role", reasoning.agent_role)
+        reasoning.parent_agent = metadata.get("parent_agent", reasoning.parent_agent)
+        reasoning.trace_id = metadata.get("trace_id", reasoning.trace_id)
+        reasoning.call_id = metadata.get("call_id", reasoning.call_id)
+        reasoning.tool_name = metadata.get("tool_name", reasoning.tool_name)
+        reasoning.sequence_index = metadata.get(
+            "sequence_index", reasoning.sequence_index
+        )
+        reasoning.reasoning_id = metadata.get("reasoning_id", reasoning.reasoning_id)
+
     def extract(
         self,
         response: Any,
@@ -712,6 +747,8 @@ class UniversalReasoningCapture:
                 reasoning = extractor.extract(response, metadata)
 
                 if reasoning and reasoning.has_content():
+                    self._apply_metadata(reasoning, metadata)
+
                     # Adicionar ao buffer
                     self._buffer.append(reasoning)
 
