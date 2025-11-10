@@ -107,22 +107,6 @@ def setup_stdlib_intercept():
             _logger.setLevel(logging.ERROR)  # Só erros críticos
 
 
-def _format_performance(record):
-    """
-    Formatador custom para sink de performance.
-    Usa .get() para evitar KeyError quando faltarem campos.
-    """
-    extra = record["extra"]
-    duration = extra.get("duration_ms", "N/A")
-    tokens = extra.get("tokens", "N/A")
-    cost = extra.get("cost", "N/A")
-
-    time_str = record["time"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-    event = extra.get("event", "UNKNOWN")
-
-    return f"{time_str} | {event} | {duration}ms | {tokens} tokens | ${cost}\n"
-
-
 def configure_logger():
     """
     Configuração principal do Loguru.
@@ -326,34 +310,7 @@ def configure_logger():
         filter=mask_sensitive_data,
     )
 
-    # SINK 5: Performance (isolado) - usa formatador custom
-    logger.add(
-        log_dir / "voxy_performance.log",
-        format=_format_performance,
-        level="DEBUG",
-        filter=lambda record: "duration_ms" in record["extra"]
-        or "cost" in record["extra"],
-        rotation="50 MB",
-        retention=10,
-        compression="zip",
-        enqueue=True,
-    )
-
-    # SINK 6: Audit trail (90 dias de retenção)
-    logger.add(
-        log_dir / "voxy_audit.log",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {extra[event]} | {extra[user_id]} | {extra[action]} | {message}",
-        level="INFO",
-        filter=lambda record: record["extra"].get("event", "").startswith("AUDIT_"),
-        rotation="100 MB",
-        retention="90 days",  # Compliance regulatório
-        compression="zip",
-        enqueue=True,
-        backtrace=False,  # Não expor stack traces em audit
-        diagnose=False,
-    )
-
-    # SINK 7: JSON estruturado (opcional)
+    # SINK 5: JSON estruturado (opcional)
     if enable_json:
         logger.add(
             log_dir / "voxy_structured.json",
@@ -367,10 +324,10 @@ def configure_logger():
             filter=mask_sensitive_data,
         )
 
-    # SINK 8: Sentry (se configurado)
+    # SINK 6: Sentry (se configurado)
     sentry_dsn = os.getenv("VOXY_LOG_SENTRY_DSN")
-    # Atualizado: agora temos 7 sinks base (console, main, debug, error, perf, audit, json)
-    sinks_count = 7 if enable_json else 6
+    # Sinks ativos: console (dev), main, debug, error, json (opcional)
+    sinks_count = 5 if enable_json else 4
 
     if sentry_dsn:
         try:
