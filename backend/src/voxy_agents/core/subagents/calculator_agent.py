@@ -4,16 +4,15 @@ Calculator Subagent - OpenAI Agents SDK Implementation
 Subagente especializado em cálculos matemáticos.
 Usa capacidades nativas do modelo para matemática avançada.
 Agora configurável via LiteLLM para suporte a múltiplos providers (OpenRouter, OpenAI, etc.).
+
+Migração Loguru - Sprint 5
 """
 
-import logging
-
-from agents import Agent, ModelSettings
+from agents import Agent
+from loguru import logger
 
 from ...config.models_config import load_calculator_config
-from ...utils.llm_factory import create_litellm_model
-
-logger = logging.getLogger(__name__)
+from ...utils.llm_factory import build_model_settings, create_model_with_reasoning
 
 
 class CalculatorAgent:
@@ -43,29 +42,46 @@ class CalculatorAgent:
         Raises:
             ValueError: If required API key is missing or config is invalid
         """
+        import time
+
+        start_time = time.perf_counter()
+
         # Load configuration from environment variables
         config = load_calculator_config()
 
         # Create LiteLLM model instance via factory
-        model = create_litellm_model(config)
+        model, reasoning_params = create_model_with_reasoning(config)
+        model_settings = build_model_settings(config, reasoning_params)
 
         # Create agent with configured model
         self.agent = Agent(
             name="Subagente Calculadora VOXY",
             model=model,
             instructions=self._get_instructions(),
-            model_settings=ModelSettings(
-                include_usage=config.include_usage,
-                temperature=config.temperature,
-            ),
+            model_settings=model_settings,
         )
 
         # Store config for reference
         self.config = config
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
 
-        logger.info(
-            f"Calculator subagent initialized: {config.provider}/{config.model_name} "
-            f"(max_tokens={config.max_tokens}, temperature={config.temperature})"
+        # Log initialization with reasoning config
+        reasoning_status = "enabled" if config.reasoning_enabled else "disabled"
+        reasoning_info = ""
+        if config.reasoning_enabled:
+            if config.thinking_budget_tokens:
+                reasoning_info = f", thinking={config.thinking_budget_tokens} tokens"
+            elif config.reasoning_effort:
+                reasoning_info = f", effort={config.reasoning_effort}"
+
+        logger.bind(event="STARTUP|SUBAGENT_INIT").info(
+            f"\n"
+            f"   └─ ✓ Calculator\n"
+            f"      ├─ Model: {config.get_litellm_model_path()}\n"
+            f"      ├─ Provider: {config.provider}\n"
+            f"      ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"
+            f"      ├─ Reasoning: {reasoning_status}{reasoning_info}\n"
+            f"      └─ ✓ Ready in {elapsed_ms:.1f}ms"
         )
 
     def _get_instructions(self) -> str:

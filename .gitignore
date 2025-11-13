@@ -85,6 +85,8 @@ test-*.js
 VOXY_ORCHESTRATOR_LITELLM_PLAN.md
 VOXY_SYSTEM_FLOWCHART.md
 *.backup
+AGENTS.md
+.codex
 
 # OS
 .DS_Store
@@ -99,3 +101,4 @@ htmlcov/
 insomnia_collection.json
 test_image.png
 coverage.json
+.claude

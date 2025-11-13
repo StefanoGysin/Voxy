@@ -3,12 +3,11 @@ Session management routes for VOXY Agents.
 Consolidated with historical chat_history.py functionality.
 """
 
-import logging
-from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from loguru import logger
+from pydantic import BaseModel
 
 from ...core.database.models import SessionDetail, SessionSummary
 from ...core.database.supabase_integration import SupabaseIntegration
@@ -21,7 +20,6 @@ from ..models import (
     SearchResultItem,
 )
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
@@ -267,7 +265,14 @@ async def get_session_messages(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting session messages: {e}")
+        logger.bind(event="SESSIONS_API|ERROR").error(
+            "Error getting session messages",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            session_id=session_id,
+            user_id=current_user.id,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve messages: {str(e)}",
@@ -376,7 +381,14 @@ async def search_user_messages(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error searching messages: {e}")
+        logger.bind(event="SESSIONS_API|ERROR").error(
+            "Error searching messages",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            user_id=current_user.id,
+            query=request.query,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}",

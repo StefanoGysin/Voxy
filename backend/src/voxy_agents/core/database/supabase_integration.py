@@ -21,6 +21,111 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+def _format_item_hierarchical(
+    item: dict, index: int, total: int, indent="   │  "
+) -> str:
+    """
+    Format an item (message/reasoning/function_call) in hierarchical visual format.
+
+    Args:
+        item: Dictionary containing item data
+        index: Current item index (0-based)
+        total: Total number of items
+        indent: Base indentation string
+
+    Returns:
+        Formatted hierarchical string
+    """
+    item_type = item.get("type", "unknown")
+    role = item.get("role", "")
+    is_last = index == total - 1
+    branch = "└─" if is_last else "├─"
+    vertical = "   " if is_last else "│  "
+
+    # Emoji mapping based on type/role
+    emoji_map = {
+        "user": "📥",
+        "assistant": "📤",
+        "reasoning": "🧠",
+        "function_call": "🔧",
+        "function_call_output": "📊",
+        "message": "💬",
+    }
+
+    emoji = emoji_map.get(role or item_type, "📄")
+
+    lines = []
+    lines.append(f"{indent}{branch} {emoji} Item {index + 1}/{total}")
+
+    # Add type-specific details
+    if role:
+        lines.append(f"{indent}{vertical}├─ Role: {role}")
+
+    if item_type and item_type != "message":
+        lines.append(f"{indent}{vertical}├─ Type: {item_type}")
+
+    # Handle content/summary/output based on item structure
+    content = None
+    if "content" in item:
+        content = item["content"]
+        content_label = "Content"
+    elif "summary" in item:
+        # Reasoning item with summary
+        summary = item["summary"]
+        if isinstance(summary, list) and summary:
+            if isinstance(summary[0], dict) and "text" in summary[0]:
+                content = summary[0]["text"]
+            else:
+                content = str(summary)
+        content_label = "Reasoning"
+    elif "output" in item:
+        content = item["output"]
+        content_label = "Output"
+    elif "arguments" in item:
+        content = item["arguments"]
+        content_label = "Arguments"
+
+    # Format content with truncation
+    if content:
+        if isinstance(content, str):
+            if len(content) > 500:
+                truncated = f"{content[:500]}... [{len(content) - 500} chars omitted]"
+            else:
+                truncated = content
+        elif isinstance(content, list):
+            # Handle list of content parts
+            text_parts = []
+            for part in content:
+                if isinstance(part, dict):
+                    if "text" in part:
+                        text_parts.append(part["text"])
+                    elif "output_text" in part:
+                        text_parts.append(part["output_text"])
+            combined = " ".join(text_parts)
+            if len(combined) > 500:
+                truncated = f"{combined[:500]}... [{len(combined) - 500} chars omitted]"
+            else:
+                truncated = combined
+        else:
+            truncated = str(content)[:500]
+
+        lines.append(f'{indent}{vertical}├─ {content_label}: "{truncated}"')
+
+    # Add function-specific details
+    if "name" in item:
+        lines.append(f"{indent}{vertical}├─ Function: {item['name']}")
+    if "call_id" in item:
+        lines.append(f"{indent}{vertical}├─ Call ID: {item['call_id'][:16]}...")
+    if "status" in item:
+        lines.append(f"{indent}{vertical}└─ Status: {item['status']}")
+    else:
+        # Change last ├─ to └─
+        if lines[-1].endswith('chars omitted]"') or ":" in lines[-1]:
+            lines[-1] = lines[-1].replace("├─", "└─")
+
+    return "\n".join(lines)
+
+
 class SupabaseIntegration:
     """Handle all Supabase database operations for VOXY Agents."""
 
@@ -275,14 +380,14 @@ class SupabaseIntegration:
     async def delete_message(self, message_id: str, user_id: str) -> bool:
         """
         Delete a specific message.
-        
+
         Args:
             message_id: ID of the message to delete
             user_id: ID of the user (for authorization via session ownership)
-            
+
         Returns:
             bool: True if deleted successfully
-            
+
         Raises:
             ValueError: If message not found or user doesn't own it
         """
@@ -293,12 +398,12 @@ class SupabaseIntegration:
             .eq("id", message_id)
             .execute()
         )
-        
+
         if not message_result.data:
             raise ValueError("Message not found")
-            
+
         session_id = message_result.data[0]["session_id"]
-        
+
         # Verify user owns the session
         session_result = (
             self.client.table("chat_sessions")
@@ -307,18 +412,13 @@ class SupabaseIntegration:
             .eq("user_id", user_id)
             .execute()
         )
-        
+
         if not session_result.data:
             raise ValueError("Message not found or access denied")
-            
+
         # Delete the message
-        result = (
-            self.client.table("messages")
-            .delete()
-            .eq("id", message_id)
-            .execute()
-        )
-        
+        result = self.client.table("messages").delete().eq("id", message_id).execute()
+
         return bool(result.data)
 
     async def update_session_title(
@@ -463,7 +563,13 @@ class SupabaseSession:
                         }
                     ).execute()
 
-                    logger.info(f"📝 Created new chat session: {self.session_id}")
+                    logger.info(
+                        f"\n💾 [DATABASE] Supabase Session Created\n"
+                        f"   ├─ Session ID: {self.session_id}\n"
+                        f"   ├─ User ID: {self.user_id[:8]}...\n"
+                        f"   ├─ Title: {session.title}\n"
+                        f"   └─ ✓ Persisted to chat_sessions"
+                    )
 
                 self._session_exists = True
             except Exception as e:
@@ -510,9 +616,17 @@ class SupabaseSession:
         Args:
             items: List of message dictionaries to store
         """
-        # Debug log to check what's being passed
+        # Format items hierarchically
+        total_items = len(items)
+        formatted_items = []
+        for idx, item in enumerate(items):
+            formatted_items.append(_format_item_hierarchical(item, idx, total_items))
+
         logger.info(
-            f"🔍 Adding items: session_id={self.session_id}, items={items}, type={type(items)}"
+            f"\n💾 [DATABASE] Adding Items to Session\n"
+            f"   ├─ Session ID: {self.session_id}\n"
+            f"   ├─ Total Items: {total_items}\n"
+            f"   │\n" + "\n".join(formatted_items)
         )
 
         await self._ensure_session_exists()
@@ -530,7 +644,7 @@ class SupabaseSession:
 
                 # Debug log - show both raw and processed content
                 raw_content_preview = str(raw_content)[:100] if raw_content else ""
-                logger.info(
+                logger.debug(
                     f"💾 Raw content type: {type(raw_content)}, preview: {raw_content_preview}"
                 )
 
@@ -570,13 +684,13 @@ class SupabaseSession:
                     )
 
                 # Debug log after processing
-                logger.info(
+                logger.debug(
                     f"💾 Processed content: {content[:100] if content else 'EMPTY'}"
                 )
 
                 # Skip saving empty content to avoid database clutter
                 if not content or content.strip() == "":
-                    logger.warning(
+                    logger.debug(
                         f"⚠️ Skipping empty content for session {self.session_id}"
                     )
                     continue

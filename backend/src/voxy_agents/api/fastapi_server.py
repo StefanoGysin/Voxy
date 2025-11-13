@@ -6,7 +6,6 @@ Implements Progressive Disclosure Interface from CREATIVE MODE decisions.
 """
 
 import json
-import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
@@ -18,18 +17,18 @@ from fastapi import (
     Query,
     WebSocket,
     WebSocketDisconnect,
+    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 from pydantic import BaseModel
 
 from ..main import get_voxy_system
 from .middleware.auth import TokenData
+from .middleware.logging_context import LoggingContextMiddleware
 from .routes import auth_router, chat_router, images_router, sessions_router
 from .routes.messages import router as messages_router
 from .routes.test import router as test_router
-
-logger = logging.getLogger(__name__)
-
 
 # Pydantic models for API - Chat models moved to routes/chat.py
 # Kept only system-level models here
@@ -89,28 +88,38 @@ class ConnectionManager:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events for startup and shutdown."""
+    import time
+
+    startup_start = time.perf_counter()
+
     # Startup
-    logger.info("🚀 VOXY Agents API Server starting up...")
-    logger.info("📋 Initializing VOXY Agents System...")
+    logger.bind(event="STARTUP|BEGIN").info("🚀 VOXY Agents System Initializing...")
 
     # Initialize VOXY system once during startup
     voxy_system = get_voxy_system()
     app.state.voxy_system = voxy_system
 
-    # Calculate total subagents (4 in orchestrator.subagents + 1 Vision Agent)
-    total_subagents = len(voxy_system.orchestrator.subagents) + 1
-    subagent_names = list(voxy_system.orchestrator.subagents.keys()) + ["vision"]
+    # Calculate timing
+    elapsed = time.perf_counter() - startup_start
 
-    logger.info("🚀 VOXY Agents System Startup")
-    logger.info(f"   ├─ 📦 Subagents: {total_subagents} registered")
-    logger.info(f"   │   ├─ {', '.join(voxy_system.orchestrator.subagents.keys())}")
-    logger.info(f"   │   └─ vision (integrated in orchestrator)")
-    logger.info(f"   └─ ✅ Ready on http://0.0.0.0:8000")
+    # Get orchestrator model path dynamically
+    orchestrator_model = voxy_system.orchestrator.config.get_litellm_model_path()
+
+    # Startup summary
+    logger.bind(event="STARTUP|COMPLETE").info(
+        f"\n"
+        f"✅ VOXY System Ready\n"
+        f"   ├─ Total time: {elapsed:.2f}s\n"
+        f"   ├─ Redis: Connected\n"
+        f"   ├─ Subagents: 5 registered (translator, corrector, weather, calculator, vision)\n"
+        f"   ├─ Orchestrator: {orchestrator_model}\n"
+        f"   └─ Listening: http://0.0.0.0:8000"
+    )
 
     yield
 
     # Shutdown
-    logger.info("🛑 VOXY Agents API Server shutting down...")
+    logger.bind(event="SHUTDOWN").info("🛑 VOXY Agents API Server shutting down...")
 
 
 # Global instances
@@ -125,6 +134,9 @@ app = FastAPI(
 
 manager = ConnectionManager()
 start_time = datetime.now()
+
+# Logging Context Middleware - DEVE vir ANTES do CORS para capturar tudo
+app.add_middleware(LoggingContextMiddleware)
 
 # CORS middleware for frontend communication
 app.add_middleware(
@@ -202,11 +214,13 @@ async def get_websocket_token(
     Validates JWT token and returns TokenData or closes connection with 1008 (Policy Violation).
     """
     if not token:
-        logger.warning("🚫 WebSocket connection rejected: No authentication token provided")
+        logger.warning(
+            "🚫 WebSocket connection rejected: No authentication token provided"
+        )
         await websocket.close(code=1008, reason="Authentication required")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication token required for WebSocket connection"
+            detail="Authentication token required for WebSocket connection",
         )
 
     try:
@@ -232,7 +246,7 @@ async def get_websocket_token(
         await websocket.close(code=1008, reason="Authentication error")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Authentication error: {str(e)}"
+            detail=f"Authentication error: {str(e)}",
         )
 
 
@@ -257,11 +271,11 @@ async def websocket_endpoint(
         )
         await websocket.close(
             code=1008,
-            reason=f"User ID mismatch: URL user_id must match authenticated token"
+            reason="User ID mismatch: URL user_id must match authenticated token",
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User ID in URL does not match authenticated user"
+            detail="User ID in URL does not match authenticated user",
         )
 
     await manager.connect(websocket, user_id)
@@ -271,7 +285,7 @@ async def websocket_endpoint(
         user_id,
         {
             "type": "connection",
-            "message": f"Conectado ao VOXY Agents System (authenticated)",
+            "message": "Conectado ao VOXY Agents System (authenticated)",
             "user_id": user_id,
             "email": token_data.email,
             "authenticated": True,

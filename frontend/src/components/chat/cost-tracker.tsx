@@ -159,7 +159,7 @@ export function CostTracker({
         </div>
         
         {/* Model Usage Breakdown */}
-        {showDetails && (costMetrics.gpt5Usage > 0 || costMetrics.gpt4oFallbackUsage > 0) && (
+        {showDetails && (costMetrics.gpt5Usage > 0 || costMetrics.fallbackUsage > 0) && (
           <div className="space-y-3 pt-3 border-t">
             <h4 className="text-sm font-medium flex items-center gap-2">
               <Zap className="w-4 h-4" />
@@ -178,38 +178,38 @@ export function CostTracker({
                 </div>
               )}
               
-              {/* GPT-4o Fallback Usage */}
-              {costMetrics.gpt4oFallbackUsage > 0 && (
+              {/* Fallback Model Usage */}
+              {costMetrics.fallbackUsage > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                    <span>GPT-4o Fallback</span>
+                    <span>Fallback Model</span>
                   </div>
-                  <span className="font-medium">{formatCurrency(costMetrics.gpt4oFallbackUsage)}</span>
+                  <span className="font-medium">{formatCurrency(costMetrics.fallbackUsage)}</span>
                 </div>
               )}
             </div>
             
             {/* Cost Distribution */}
-            {costMetrics.gpt5Usage > 0 && costMetrics.gpt4oFallbackUsage > 0 && (
+            {costMetrics.gpt5Usage > 0 && costMetrics.fallbackUsage > 0 && (
               <div className="space-y-1">
                 <div className="flex h-2 rounded-full overflow-hidden bg-muted">
-                  <div 
+                  <div
                     className="bg-purple-500 transition-all duration-300"
-                    style={{ 
-                      width: `${(costMetrics.gpt5Usage / costMetrics.totalCost) * 100}%` 
+                    style={{
+                      width: `${(costMetrics.gpt5Usage / costMetrics.totalCost) * 100}%`
                     }}
                   />
-                  <div 
+                  <div
                     className="bg-blue-500 transition-all duration-300"
-                    style={{ 
-                      width: `${(costMetrics.gpt4oFallbackUsage / costMetrics.totalCost) * 100}%` 
+                    style={{
+                      width: `${(costMetrics.fallbackUsage / costMetrics.totalCost) * 100}%`
                     }}
                   />
                 </div>
                 <div className="text-xs text-muted-foreground text-center">
-                  {((costMetrics.gpt5Usage / costMetrics.totalCost) * 100).toFixed(0)}% GPT-5 • 
-                  {' '}{((costMetrics.gpt4oFallbackUsage / costMetrics.totalCost) * 100).toFixed(0)}% GPT-4o
+                  {((costMetrics.gpt5Usage / costMetrics.totalCost) * 100).toFixed(0)}% GPT-5 •
+                  {' '}{((costMetrics.fallbackUsage / costMetrics.totalCost) * 100).toFixed(0)}% Fallback
                 </div>
               </div>
             )}

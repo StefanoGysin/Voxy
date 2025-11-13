@@ -5,7 +5,6 @@ Provides endpoints for uploading, listing, updating, and deleting user images
 with integration to Supabase Storage and proper security validations.
 """
 
-import logging
 import os
 import re
 import uuid
@@ -24,6 +23,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
 from ..middleware.auth import User, get_current_user
@@ -31,8 +31,6 @@ from ..middleware.supabase_client import (
     get_supabase_client,
     get_supabase_service_client,
 )
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/images",
@@ -348,7 +346,13 @@ async def upload_image(
                     raise ValueError("Maximum of 10 tags allowed")
 
         except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Tags parsing failed for input: '{tags}' - Error: {e}")
+            logger.bind(event="IMAGES_API|VALIDATION").error(
+                "Tags parsing failed",
+                tags_input=tags,
+                error_type=type(e).__name__,
+                error_msg=str(e),
+                user_id=current_user.id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f'Invalid tags format. Supported formats: JSON array ["tag1", "tag2"], comma-separated "tag1,tag2", or single tag "tag1". Error: {str(e)}',
@@ -365,8 +369,12 @@ async def upload_image(
         if hasattr(current_user, "jwt_token") and current_user.jwt_token:
             supabase.auth.set_session(current_user.jwt_token)
 
-        logger.info(
-            f"🚀 Starting upload for user {current_user.id}, path: {storage_path}"
+        logger.bind(event="IMAGES_API|UPLOAD_START").info(
+            "Starting image upload",
+            user_id=current_user.id,
+            storage_path=storage_path,
+            file_size=validation_result["size"],
+            content_type=file.content_type,
         )
 
         # Upload file
@@ -378,11 +386,17 @@ async def upload_image(
                     "content-type": file.content_type,
                 },
             )
-            logger.info(f"📤 Upload result: {result}")
+            logger.bind(event="IMAGES_API|STORAGE_SAVE").debug(
+                "Storage upload result received", result_type=type(result).__name__
+            )
 
             # Supabase Python client returns different format - check for errors
             if hasattr(result, "data") and result.data:
-                logger.info("✅ Upload successful")
+                logger.bind(event="IMAGES_API|STORAGE_SAVE").info(
+                    "Storage upload successful",
+                    user_id=current_user.id,
+                    storage_path=storage_path,
+                )
             elif hasattr(result, "error") and result.error:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -390,12 +404,23 @@ async def upload_image(
                 )
             else:
                 # Fallback - assume success if no explicit error
-                logger.info("📤 Upload completed (assuming success)")
+                logger.bind(event="IMAGES_API|STORAGE_SAVE").info(
+                    "Storage upload completed (assuming success)",
+                    user_id=current_user.id,
+                    storage_path=storage_path,
+                )
 
         except HTTPException:
             raise
         except Exception as upload_error:
-            logger.error(f"❌ Upload exception: {upload_error}")
+            logger.bind(event="IMAGES_API|ERROR").error(
+                "Storage upload exception",
+                error_type=type(upload_error).__name__,
+                error_msg=str(upload_error),
+                user_id=current_user.id,
+                storage_path=storage_path,
+                exc_info=True,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to upload file: {str(upload_error)}",
@@ -406,11 +431,21 @@ async def upload_image(
             file_url = supabase.storage.from_(STORAGE_BUCKET).get_public_url(
                 storage_path
             )
-            logger.info(f"🔗 Generated file URL: {file_url}")
+            logger.bind(event="IMAGES_API|STORAGE_SAVE").debug(
+                "Generated file URL", url_length=len(file_url), user_id=current_user.id
+            )
         except Exception as url_error:
-            logger.error(f"❌ Failed to generate URL: {url_error}")
+            logger.bind(event="IMAGES_API|ERROR").error(
+                "Failed to generate URL",
+                error_type=type(url_error).__name__,
+                error_msg=str(url_error),
+                user_id=current_user.id,
+                storage_path=storage_path,
+            )
             file_url = f"https://{supabase.supabase_url}/storage/v1/object/public/{STORAGE_BUCKET}/{storage_path}"
-            logger.info(f"🔗 Using fallback URL: {file_url}")
+            logger.bind(event="IMAGES_API|STORAGE_SAVE").info(
+                "Using fallback URL", url_length=len(file_url), user_id=current_user.id
+            )
 
         # Generate public URL if needed
         public_url = file_url if public else None
@@ -427,7 +462,15 @@ async def upload_image(
             "is_public": public,
         }
 
-        logger.info(f"💾 Saving metadata to database: {image_data}")
+        logger.bind(event="IMAGES_API|DB_SAVE").info(
+            "Saving image metadata to database",
+            user_id=current_user.id,
+            file_size=validation_result["size"],
+            content_type=file.content_type,
+            has_description=bool(description),
+            tags_count=len(parsed_tags) if parsed_tags else 0,
+            is_public=public,
+        )
 
         try:
             # Simple direct insert using service client
@@ -443,17 +486,31 @@ async def upload_image(
                 )
                 formatted_data["tags"] = tags_array
 
-            logger.info(f"📝 Formatted data: {formatted_data}")
+            logger.bind(event="IMAGES_API|DB_SAVE").debug(
+                "Formatted data for database", user_id=current_user.id
+            )
 
             insert_result = (
                 service_supabase.table("user_images").insert(formatted_data).execute()
             )
-            logger.info(f"✅ Database insert result: {insert_result}")
+            logger.bind(event="IMAGES_API|DB_SAVE").info(
+                "Database insert successful",
+                user_id=current_user.id,
+                has_data=bool(insert_result.data),
+            )
 
         except Exception as db_error:
-            logger.error(f"❌ Database insert failed: {db_error}")
+            logger.bind(event="IMAGES_API|ERROR").error(
+                "Database insert failed",
+                error_type=type(db_error).__name__,
+                error_msg=str(db_error),
+                user_id=current_user.id,
+                exc_info=True,
+            )
             # For now, let's continue without saving metadata to test the upload
-            logger.warning("⚠️ Continuing without metadata save for testing")
+            logger.bind(event="IMAGES_API|DB_SAVE").warning(
+                "Continuing without metadata save for testing", user_id=current_user.id
+            )
 
             # Create mock result for testing
             insert_result = type(
@@ -478,14 +535,23 @@ async def upload_image(
             )()
 
         if not insert_result.data:
-            logger.error("❌ No data returned from database insert")
+            logger.bind(event="IMAGES_API|ERROR").error(
+                "No data returned from database insert",
+                user_id=current_user.id,
+                storage_path=storage_path,
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to save image metadata - no data returned",
             )
 
         image_record = insert_result.data[0]
-        logger.info(f"📊 Image record created: {image_record}")
+        logger.bind(event="IMAGES_API|DB_SAVE").info(
+            "Image record created",
+            user_id=current_user.id,
+            image_id=image_record["id"],
+            file_size=image_record["file_size"],
+        )
 
         # Handle datetime parsing safely
         try:
@@ -496,7 +562,12 @@ async def upload_image(
             else:
                 created_at = image_record["created_at"]
         except Exception as dt_error:
-            logger.warning(f"⚠️ Datetime parsing error: {dt_error}, using current time")
+            logger.bind(event="IMAGES_API|DB_SAVE").warning(
+                "Datetime parsing error, using current time",
+                error_type=type(dt_error).__name__,
+                error_msg=str(dt_error),
+                user_id=current_user.id,
+            )
             created_at = datetime.now(timezone.utc)
 
         response_data = ImageUploadResponse(
@@ -512,14 +583,31 @@ async def upload_image(
             created_at=created_at,
         )
 
-        logger.info(f"🎉 Upload completed successfully for user {current_user.id}")
+        logger.bind(event="IMAGES_API|UPLOAD_SUCCESS").info(
+            "Upload completed successfully",
+            user_id=current_user.id,
+            image_id=image_record["id"],
+            file_size=image_record["file_size"],
+            content_type=image_record["content_type"],
+        )
         return response_data
 
     except HTTPException as http_exc:
-        logger.error(f"❌ HTTP Exception during upload: {http_exc.detail}")
+        logger.bind(event="IMAGES_API|ERROR").error(
+            "HTTP Exception during upload",
+            status_code=http_exc.status_code,
+            detail=http_exc.detail,
+            user_id=current_user.id,
+        )
         raise
     except Exception as e:
-        logger.error(f"❌ Unexpected error during upload: {str(e)}", exc_info=True)
+        logger.bind(event="IMAGES_API|ERROR").error(
+            "Unexpected error during upload",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            user_id=current_user.id,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Upload failed: {str(e)}",

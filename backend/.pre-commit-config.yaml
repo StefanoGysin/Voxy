@@ -1,0 +1,92 @@
+# Pre-commit hooks configuration for VOXY Agents
+# Runs automatically before each commit to ensure code quality
+#
+# Setup:
+#   poetry run pre-commit install
+#
+# Manual run:
+#   poetry run pre-commit run --all-files
+#
+# Skip hooks (emergency only):
+#   git commit --no-verify
+
+repos:
+  # ========================================================================
+  # 1. BLACK - Code Formatter (runs first to normalize formatting)
+  # ========================================================================
+  - repo: local
+    hooks:
+      - id: black
+        name: "Black - Code Formatter"
+        entry: bash -c 'cd backend && poetry run black $(echo "$@" | sed "s|backend/||g")' --
+        language: system
+        types: [python]
+        files: ^backend/
+        # Black auto-fixes, so commit will be blocked until user re-adds files
+
+  # ========================================================================
+  # 2. RUFF - Linter (runs after Black to check formatted code)
+  # ========================================================================
+  - repo: local
+    hooks:
+      - id: ruff
+        name: "Ruff - Linter & Auto-fixer"
+        entry: bash -c 'cd backend && poetry run ruff check --fix --exit-non-zero-on-fix $(echo "$@" | sed "s|backend/||g")' --
+        language: system
+        types: [python]
+        files: ^backend/
+        pass_filenames: true
+
+  # ========================================================================
+  # 3. MYPY - Type Checker (runs last, doesn't modify files)
+  # ========================================================================
+  - repo: local
+    hooks:
+      - id: mypy
+        name: "Mypy - Type Checker"
+        entry: bash -c 'cd backend && poetry run mypy src/'
+        language: system
+        types: [python]
+        files: ^backend/src/
+        pass_filenames: false  # Mypy needs to see all files together for imports
+
+  # ========================================================================
+  # 4. GENERAL CHECKS - Pre-commit built-in hooks
+  # ========================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: "Trim Trailing Whitespace"
+        types: [python]
+
+      - id: end-of-file-fixer
+        name: "Fix End of Files"
+        types: [python]
+
+      - id: check-yaml
+        name: "Check YAML Syntax"
+        types: [yaml]
+
+      - id: check-added-large-files
+        name: "Check for Large Files"
+        args: ['--maxkb=1000']  # Block files > 1MB
+
+      - id: check-merge-conflict
+        name: "Check for Merge Conflicts"
+
+      - id: debug-statements
+        name: "Check for Debug Statements"
+        types: [python]
+
+# ========================================================================
+# Configuration
+# ========================================================================
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+# Fail fast: stop on first failure (faster feedback)
+fail_fast: false
+
+# Minimum pre-commit version required
+minimum_pre_commit_version: '3.5.0'

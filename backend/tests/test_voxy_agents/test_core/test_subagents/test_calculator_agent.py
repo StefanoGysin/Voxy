@@ -9,11 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.voxy_agents.config.models_config import SubagentModelConfig
 from src.voxy_agents.core.subagents.calculator_agent import (
     CalculatorAgent,
     get_calculator_agent,
 )
-from src.voxy_agents.config.models_config import SubagentModelConfig
 
 
 class TestCalculatorAgent:
@@ -32,13 +32,17 @@ class TestCalculatorAgent:
             include_usage=True,
         )
 
-        with patch(
-            "src.voxy_agents.core.subagents.calculator_agent.load_calculator_config"
-        ) as mock_load_config, patch(
-            "src.voxy_agents.core.subagents.calculator_agent.create_litellm_model"
-        ) as mock_create_model, patch(
-            "src.voxy_agents.core.subagents.calculator_agent.Agent"
-        ) as mock_agent_class:
+        with (
+            patch(
+                "src.voxy_agents.core.subagents.calculator_agent.load_calculator_config"
+            ) as mock_load_config,
+            patch(
+                "src.voxy_agents.core.subagents.calculator_agent.create_litellm_model"
+            ) as mock_create_model,
+            patch(
+                "src.voxy_agents.core.subagents.calculator_agent.Agent"
+            ) as mock_agent_class,
+        ):
             # Setup mocks
             mock_load_config.return_value = mock_config
             mock_model = MagicMock()

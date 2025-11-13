@@ -34,23 +34,20 @@ export function MessageInput({
 
   const handleSubmit = useCallback(() => {
     console.log('🔍 DEBUG - handleSubmit called:', { message: message.trim(), attachedImage, selectedAgent })
-    
+
     if ((message.trim() || attachedImage) && !disabled) {
       // Only prefix with agent name when:
       // 1. Agent is not VOXY AND
-      // 2. There's actually an image attached (for Vision Agent) OR it's another agent type
-      const shouldPrefixAgent = selectedAgent !== 'voxy' && (
-        (selectedAgent === 'vision' && attachedImage) || 
-        (selectedAgent !== 'vision')
-      )
-      
+      // 2. Agent is not Vision (Vision uses image_url parameter, not prefix)
+      const shouldPrefixAgent = selectedAgent !== 'voxy' && selectedAgent !== 'vision'
+
       const finalMessage = shouldPrefixAgent
         ? `[${selectedAgent.toUpperCase()}] ${message.trim()}`
         : message.trim()
-      
+
       // Auto-select Vision Agent if image is attached and no specific agent selected
       const agentToUse = attachedImage && selectedAgent === 'voxy' ? 'vision' : selectedAgent
-      
+
       console.log('🔍 DEBUG - Calling onSendMessage:', { finalMessage, agentToUse, attachedImage })
       onSendMessage(finalMessage, agentToUse, attachedImage || undefined)
       setMessage('')

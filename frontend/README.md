@@ -2,6 +2,17 @@
 
 Interface desktop completa desenvolvida para o sistema VOXY multi-agente. **VOXY Web OS** oferece uma experiência de sistema operacional web com 13 wallpapers dinâmicos, grid 4x6 inteligente e VOXY Chat integrado.
 
+## Requisitos
+
+- Python 3.12+ (minimo 3.12.3)
+- Poetry 2.1.4
+- OpenAI Agents SDK 0.3.3
+- LiteLLM 1.75.7+
+- FastAPI 0.115.14
+- Next.js 15.4.6
+- Node.js 18+ (para frontend)
+- Redis 5.0+
+
 ## 🖥️ Status do VOXY Web OS
 
 **✅ 100% Funcional + Image Management System (Implementado 2025-09-30)**

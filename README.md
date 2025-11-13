@@ -1,10 +1,23 @@
 # VOXY Agents - Sistema Multi-Agente Inteligente
 
-Sistema conversacional multi-agente com GPT-4o orquestrando 4 subagentes especializados. Interface profissional com session management e dashboard em tempo real.
+Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provider, 400+ modelos) coordenando 4 subagentes especializados. Interface profissional com session management e dashboard em tempo real.
+
+## Requisitos
+
+- Python 3.12+ (minimo 3.12.3)
+- Poetry 2.1.4
+- OpenAI Agents SDK 0.3.3
+- LiteLLM 1.75.7+
+- FastAPI 0.115.14
+- Next.js 15.4.6
+- Node.js 18+ (para frontend)
+- Redis 5.0+
+
+> Nota: OpenAI Agents SDK v0.4.2 esta disponivel, mas a migracao ainda nao foi realizada. Consulte `.safe-zone/migration-plan.md` para detalhes.
 
 ## 🚀 Status Atual
 
-**✅ Sistema 100% Funcional + LiteLLM Multi-Provider Support (2025-10-04)**
+**✅ Sistema 100% Funcional + LiteLLM Multi-Provider Support (2025-10-27)**
 - ✅ Multi-agent backend operacional
 - ✅ **🔧 LiteLLM Multi-Provider**: 4 Subagentes (Calculator, Corrector, Translator, Weather) com suporte a 400+ modelos via OpenRouter (NEW)
 - ✅ **🧪 Isolated Subagent Testing**: Sistema completo para testes isolados de subagentes
@@ -24,16 +37,16 @@ Sistema conversacional multi-agente com GPT-4o orquestrando 4 subagentes especia
 ## 🏗️ Arquitetura
 
 ### Backend (Python + OpenAI Agents SDK)
-- **VOXY Orchestrator**: GPT-4o (coordenação principal)
+- **VOXY Orchestrator**: LiteLLM Multi-Provider (400+ modelos configuráveis via .env, default: anthropic/claude-sonnet-4.5)
 - **4 Subagentes Configuráveis via LiteLLM**: Calculator, Corrector, Translator, Weather (400+ modelos disponíveis)
-- **Stack**: Python 3.9+, Poetry, FastAPI, Supabase, Redis
+- **Stack**: Python 3.12+ (minimo 3.12.3), Poetry 2.1.4, FastAPI 0.115.14, Supabase, Redis
 - **API Consolidada**: 7 módulos (/auth, /chat, /sessions, /messages, /images, /test) + Modelos centralizados
 - **Isolated Testing**: SubagentTester para debug rápido (CLI + HTTP + Programático)
 - **Arquitetura DRY**: Modelos Pydantic compartilhados em `api/models.py`
 - **Segurança**: JWT + JTI (24-hour expiration) + Redis token blacklisting
 - **Auth Avançado**: Remember Me + Real logout + Token invalidation
 
-### Frontend (Next.js 15 + TypeScript)
+### Frontend (Next.js 15.4.6 + TypeScript)
 - **VOXY Web OS**: Interface desktop completa com 13 wallpapers dinâmicos
 - **Image Management System**: 5 componentes React + API client + página dedicada
 - **Professional Drag & Drop**: Smart swapping, collision detection, grid responsivo
@@ -41,16 +54,16 @@ Sistema conversacional multi-agente com GPT-4o orquestrando 4 subagentes especia
 - **Advanced Search**: Busca cross-session com filtros e relevance
 - **Chat Interface**: Tempo real seguro com identificação por agente
 - **Remember Me**: Auto-login, preenchimento automático, checkbox operacional
-- **Stack**: Next.js 15, TypeScript, TailwindCSS, Zustand, Radix UI, @dnd-kit
+- **Stack**: Next.js 15.4.6, TypeScript, TailwindCSS, Zustand, Radix UI, @dnd-kit
 
 ## 🛠️ Instalação Rápida
 
 ### Pré-requisitos
 - Node.js 18+
-- Python 3.9+
-- Poetry
-- Redis
-- Contas: OpenAI, Supabase, OpenWeatherMap
+- Python 3.12+ (testado com 3.12.3)
+- Poetry 2.1.4
+- Redis 5.0+
+- Contas: OpenAI/OpenRouter, Supabase, OpenWeatherMap
 
 ### 1. Backend
 ```bash
@@ -239,7 +252,7 @@ NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000
   - Recomendado: DeepSeek V3.1 para raciocínio matemático + baixo custo
   - Alternativas: Claude Sonnet 4.5, GPT-4.1-mini, DeepSeek V3 0324 (grátis)
 - **Todos os subagentes**: Suporte a 400+ modelos via LiteLLM Multi-Provider Architecture
-- **VOXY**: Orquestração inteligente (GPT-4o)
+- **VOXY**: Orquestração inteligente (LiteLLM configurável via ORCHESTRATOR_MODEL - ver .env.example)
 
 ### Comunicação Real-time Segura
 - **WebSocket Seguro**: JWT **obrigatório** via query parameter (código 1008 se ausente/inválido)
@@ -278,6 +291,10 @@ NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000
 ```
 
 ### Modelos Recomendados
+
+> **💡 Nota sobre Modelos**: Todos os modelos listados abaixo são **sugestões baseadas em custo-benefício (2025)**.
+> O sistema suporta **400+ modelos** via LiteLLM. Configure qualquer modelo através das variáveis
+> `*_MODEL` no arquivo `.env`. Consulte `.env.example` para ver a configuração atual do seu projeto.
 
 #### Para Matemática e Raciocínio (Calculator Agent)
 
@@ -776,6 +793,8 @@ poetry run pytest tests/test_subagent_tester.py \
 | ↳ Free | ~1.5s | DeepSeek V3 0324 (grátis) | **$0** |
 | **Vision (cache hit)** | <1s | cached | $0 |
 | Vision (cache miss) | 7-8s | gpt-5/gpt-4o | $0.02 |
+
+*Métricas baseadas nos modelos default do `.env.example`. Performance varia por modelo escolhido.*
 
 #### 🔧 Configuração de Flags
 

@@ -3,16 +3,15 @@ Weather Subagent - OpenAI Agents SDK Implementation
 
 Subagente especializado em informações meteorológicas.
 Usa APIs externas para dados em tempo real.
+
+Migração Loguru - Sprint 5
 """
 
-import logging
-
-from agents import Agent, ModelSettings, function_tool
+from agents import Agent, function_tool
+from loguru import logger
 
 from ...config.models_config import load_weather_config
-from ...utils.llm_factory import create_litellm_model
-
-logger = logging.getLogger(__name__)
+from ...utils.llm_factory import build_model_settings, create_model_with_reasoning
 
 
 @function_tool
@@ -71,7 +70,7 @@ class WeatherAgent:
     Subagente meteorológico com acesso a APIs de clima.
 
     Características:
-    - Usa gpt-4o-mini para processamento eficiente
+    - Usa LLM configurável para processamento eficiente (configured in .env - see .env.example)
     - Integração com OpenWeatherMap API
     - Formatação inteligente de dados meteorológicos
     - Suporte a múltiplas cidades e países
@@ -79,22 +78,43 @@ class WeatherAgent:
 
     def __init__(self):
         """Initialize the weather subagent with configurable LiteLLM model."""
+        import time
+
+        start_time = time.perf_counter()
+
         config = load_weather_config()
-        model = create_litellm_model(config)
+        model, reasoning_params = create_model_with_reasoning(config)
+        model_settings = build_model_settings(config, reasoning_params)
 
         self.agent = Agent(
             name="Subagente Meteorológico VOXY",
             model=model,
             instructions=self._get_instructions(),
             tools=[get_weather_api],  # API tool necessária
-            model_settings=ModelSettings(
-                include_usage=config.include_usage,
-                temperature=config.temperature,
-            ),
+            model_settings=model_settings,
         )
 
         self.config = config
-        logger.info(f"Weather subagent initialized: {config.provider}/{config.model_name} + API tools")
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        # Log initialization with reasoning config
+        reasoning_status = "enabled" if config.reasoning_enabled else "disabled"
+        reasoning_info = ""
+        if config.reasoning_enabled:
+            if config.thinking_budget_tokens:
+                reasoning_info = f", thinking={config.thinking_budget_tokens} tokens"
+            elif config.reasoning_effort:
+                reasoning_info = f", effort={config.reasoning_effort}"
+
+        logger.bind(event="STARTUP|SUBAGENT_INIT").info(
+            f"\n"
+            f"   ├─ ✓ Weather\n"
+            f"   │  ├─ Model: {config.get_litellm_model_path()}\n"
+            f"   │  ├─ Provider: {config.provider}\n"
+            f"   │  ├─ Config: {config.max_tokens} tokens, temp={config.temperature}\n"
+            f"   │  ├─ Reasoning: {reasoning_status}{reasoning_info}\n"
+            f"   │  └─ ✓ Ready in {elapsed_ms:.1f}ms"
+        )
 
     def _get_instructions(self) -> str:
         """Get specialized instructions for weather information."""

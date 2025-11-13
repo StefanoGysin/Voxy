@@ -1,6 +1,8 @@
 # VOXY Agents - Sistema Multi-Agente
 
-Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.2.8. Implementa orquestração inteligente com VOXY coordenando subagentes especializados + Vision Agent GPT-5 integrado, apresentado através de uma interface **VOXY Web OS** completa.
+Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados + Vision Agent GPT-5 integrado, apresentado através de uma interface **VOXY Web OS** completa.
+
+> ⚠️ **OpenAI Agents SDK v0.4.2 disponível**: Requer migração (breaking changes). Ver [.safe-zone/migration-plan.md] para detalhes.
 
 > 📚 Para histórico detalhado de implementações e features, consulte [@HISTORY.md](./HISTORY.md)
 
@@ -8,10 +10,11 @@ Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0
 
 - **5 Subagentes SDK**: Translator, Corrector, Weather, Calculator, Vision (LiteLLM - 400+ modelos configuráveis)
 - **Vision Agent**: Análise multimodal com OpenAI Agents SDK + LiteLLM Multi-Provider
+- **Token Usage Tracking**: Sistema centralizado de rastreamento de tokens + cost estimation (100% coverage)
 - **Image Management System**: Sistema completo de gerenciamento de imagens integrado ao Web OS
 - **VOXY Web OS**: Interface desktop completa com 13 wallpapers dinâmicos
 - **Professional Drag & Drop**: Smart swapping, collision detection, grid responsivo (6 breakpoints)
-- **VOXY Orchestrator**: OpenAI Agents SDK + LiteLLM Multi-Provider (Claude Sonnet 4.5 default, 400+ modelos configuráveis)
+- **VOXY Orchestrator**: OpenAI Agents SDK + LiteLLM Multi-Provider (400+ modelos configuráveis via .env)
 - **Remember Me System**: Auto-login e persistência de credenciais (100% funcional)
 - **Stack Completa**: FastAPI + Next.js 15 + Supabase + Redis
 - **Performance**: 7-8s análise multimodal, <2s operações standard
@@ -21,27 +24,27 @@ Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0
 ### Core Components
 ```
 VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
-├── Default Model: anthropic/claude-sonnet-4.5 via OpenRouter
+├── Model Selection: 100% configurável via .env (ORCHESTRATOR_MODEL)
 ├── Configuration: 100% via environment variables (ORCHESTRATOR_*)
 ├── Architecture: Factory pattern (models_config.py + llm_factory.py)
 ├── Flexibility: 400+ modelos disponíveis (OpenRouter, OpenAI, Anthropic, Google)
 └── 5 Subagentes SDK (OpenAI Agents SDK + LiteLLM - 400+ modelos)
-    ├── Translator, Corrector, Weather, Calculator (LiteLLM configuráveis)
-    └── Vision Agent (OpenAI Agents SDK + LiteLLM Multi-Provider)
-        ├── Dual-Path: Bypass direto + Decisão VOXY
-        ├── Cache: L1 memory + L2 Redis
-        ├── Provider: openrouter | openai | anthropic
-        └── Features: Adaptive reasoning + Cost tracking
+  ├── Translator, Corrector, Weather, Calculator (LiteLLM configuráveis)
+  └── Vision Agent (OpenAI Agents SDK + LiteLLM Multi-Provider)
+      ├── Dual-Path: Bypass direto + Decisão VOXY
+      ├── Cache: L1 memory + L2 Redis
+      ├── Provider: openrouter | openai | anthropic
+      └── Features: Adaptive reasoning + Cost tracking
 ├── Image Management System
 │   ├── Upload: Drag & drop + validation + progress tracking
 │   ├── Storage: Supabase Storage + organized paths
 │   ├── UI: 5 React components + responsive grid
 │   └── Integration: VOXY Web OS icon + JWT auth
 └── Authentication System
-    ├── Remember Me: Auto-login + Credential persistence
-    ├── JWT Tokens: 24h expiration + JTI tracking
-    ├── Redis Blacklisting: Token invalidation system
-    └── Security: Smart logout + Error handling
+  ├── Remember Me: Auto-login + Credential persistence
+  ├── JWT Tokens: 24h expiration + JTI tracking
+  ├── Redis Blacklisting: Token invalidation system
+  └── Security: Smart logout + Error handling
 ```
 
 ### Vision Agent Dual-Path
@@ -50,8 +53,8 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 
 ## 📋 Stack Tecnológico
 
-**Backend**: Python 3.9+, Poetry 2.1.4, FastAPI, Uvicorn
-**AI**: OpenAI Agents SDK 0.2.8, LiteLLM Multi-Provider (400+ modelos), Claude Sonnet 4.5 (Orchestrator default)
+**Backend**: Python 3.12+ (min 3.12.3), Poetry 2.1.4, FastAPI, Uvicorn
+**AI**: OpenAI Agents SDK 0.3.3, LiteLLM 1.75.7+ Multi-Provider (400+ modelos configuráveis via .env)
 **Database**: Supabase (PostgreSQL + Auth + Storage)
 **Cache**: Redis 5.0+ (Token blacklisting + Vision cache)
 **Frontend**: Next.js 15.4.6, TypeScript, TailwindCSS, Radix UI
@@ -76,31 +79,63 @@ voxy/
 │   │   │   ├── models.py       # Modelos compartilhados (DRY principle)
 │   │   │   └── routes/         # 6 módulos API + auth
 │   │   ├── config/             # models_config.py (LiteLLM)
-│   │   └── utils/              # llm_factory.py + test_subagents.py
+│   │   └── utils/              # llm_factory.py + usage_tracker.py + test_subagents.py
 │   ├── tests/                  # 213+ testes (89% coverage)
 │   ├── scripts/                # test_agent.py (CLI testing)
 │   └── pyproject.toml          # Poetry config
 └── frontend/
-    ├── src/components/
-    │   ├── os/                 # VOXY Web OS Components
-    │   │   ├── EnhancedOSDashboard.tsx
-    │   │   ├── WallpaperSystem.tsx (13 presets)
-    │   │   ├── AppIcon.tsx (draggable)
-    │   │   ├── DateTimeWidget.tsx
-    │   │   ├── DragDropProvider.tsx (smart collision)
-    │   │   └── hooks/          # useResponsiveGrid, useProtectedAreas
-    │   ├── images/             # Image Management System (5 components)
-    │   ├── ui/                 # Radix UI components
-    │   ├── auth/               # Enhanced with Remember Me
-    │   └── chat/               # Integrated VOXY Chat
-    ├── lib/
-    │   ├── api/images.ts       # Image Management API client
-    │   └── store/              # os-store, auth-store, session-store
-    └── src/app/
-        ├── page.tsx            # VOXY Web OS main interface
-        ├── chat/page.tsx       # Chat application
-        └── images/page.tsx     # Image Management page
+  ├── src/components/
+  │   ├── os/                 # VOXY Web OS Components
+  │   │   ├── EnhancedOSDashboard.tsx
+  │   │   ├── WallpaperSystem.tsx (13 presets)
+  │   │   ├── AppIcon.tsx (draggable)
+  │   │   ├── DateTimeWidget.tsx
+  │   │   ├── DragDropProvider.tsx (smart collision)
+  │   │   └── hooks/          # useResponsiveGrid, useProtectedAreas
+  │   ├── images/             # Image Management System (5 components)
+  │   ├── ui/                 # Radix UI components
+  │   ├── auth/               # Enhanced with Remember Me
+  │   └── chat/               # Integrated VOXY Chat
+  ├── lib/
+  │   ├── api/images.ts       # Image Management API client
+  │   └── store/              # os-store, auth-store, session-store
+  └── src/app/
+      ├── page.tsx            # VOXY Web OS main interface
+      ├── chat/page.tsx       # Chat application
+      └── images/page.tsx     # Image Management page
 ```
+
+## 📁 Estrutura de Documentação
+
+**IMPORTANTE - Organização de Documentação**:
+
+- **`.safe-zone/`**: Área de desenvolvimento/rascunho (NÃO commitada ao git)
+  - Use livremente para notas técnicas, planos de implementação, findings de auditoria
+  - Conteúdo desta pasta NÃO entra no repositório
+  - Ideal para documentação técnica temporária e trabalho em progresso
+
+- **`docs/`**: Documentação oficial do projeto (commitada ao git)
+  - **REQUER AUTORIZAÇÃO** do usuário antes de criar/modificar arquivos aqui
+  - Contém documentação pública e permanente do projeto
+  - Apenas documentação finalizada e aprovada
+
+**Regra**: Claude pode criar documentação livremente em `.safe-zone/` mas NUNCA em `docs/` sem autorização explícita.
+
+## 🔧 Consultando Configuração de Modelos Atual
+
+**IMPORTANTE**: A documentação usa modelos como **exemplos** (defaults configurados em `.env.example`).
+Para saber qual modelo está **realmente sendo usado** no ambiente atual:
+
+1. **Verificar arquivo .env**:
+   ```bash
+   grep "ORCHESTRATOR_MODEL\|CALCULATOR_MODEL\|VISION_MODEL" backend/.env
+   ```
+
+2. **Consultar quando necessário**: Antes de assumir qual modelo está ativo, sempre consulte o `.env`
+   ou pergunte ao usuário sobre a configuração atual.
+
+3. **Flexibilidade**: Qualquer referência a "Claude Sonnet 4.5", "GPT-4o", etc. na documentação
+   refere-se aos **defaults sugeridos**, não a requisitos fixos.
 
 ## 🧪 Testing & Quality
 
@@ -159,46 +194,69 @@ poetry run python scripts/test_agent.py --interactive
 
 ## 🔐 Configurações de Ambiente
 
-**Essenciais (.env)**:
+**IMPORTANTE - Sistema Model-Agnostic**:
+
+O VOXY Agents é **100% configurável via variáveis de ambiente**. Não há modelos hardcoded no código.
+Todos os modelos (VOXY Orchestrator + 5 Subagentes) são configurados através do arquivo `.env`.
+
+**Para configurar seu ambiente**:
+
+1. **Copie o template**:
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+
+2. **Edite `backend/.env`** com suas credenciais e preferências de modelos
+
+3. **Consulte `.env.example`** para ver:
+   - Variáveis obrigatórias vs. opcionais
+   - Exemplos de configuração (não são requisitos!)
+   - Comentários sobre cada parâmetro
+   - Sugestões de modelos por caso de uso
+
+**Categorias de Configuração**:
+
 ```bash
-# JWT + Remember Me
-SUPABASE_JWT_EXPIRATION_HOURS=24
-SUPABASE_JWT_SECRET=your_jwt_secret_here
-REDIS_URL=redis://localhost:6379
+# 1. API Keys & Authentication
+OPENROUTER_API_KEY=          # Para 400+ modelos via OpenRouter
+OPENAI_API_KEY=              # Para modelos OpenAI diretos
+ANTHROPIC_API_KEY=           # Para Claude direto
+GOOGLE_API_KEY=              # Para Gemini direto
 
-# OpenRouter API (LiteLLM)
-OPENROUTER_API_KEY=sk-or-...
-OR_SITE_URL=https://voxy.ai              # [OPTIONAL]
-OR_APP_NAME=VOXY Agents                  # [OPTIONAL]
+# 2. Database & Cache
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_KEY=
+SUPABASE_JWT_SECRET=
+REDIS_URL=
 
-# VOXY Orchestrator (LiteLLM Multi-Provider)
-ORCHESTRATOR_PROVIDER=openrouter                      # openrouter | openai | anthropic
-ORCHESTRATOR_MODEL=anthropic/claude-sonnet-4.5       # Main orchestrator model
-ORCHESTRATOR_MAX_TOKENS=4000
-ORCHESTRATOR_TEMPERATURE=0.3                          # Moderate for reasoning
-ORCHESTRATOR_REASONING_EFFORT=medium                  # minimal | low | medium | high
-ORCHESTRATOR_INCLUDE_USAGE=true
-ORCHESTRATOR_ENABLE_STREAMING=false                   # Future feature flag
+# 3. VOXY Orchestrator
+ORCHESTRATOR_PROVIDER=       # openrouter | openai | anthropic | google
+ORCHESTRATOR_MODEL=          # Qualquer modelo suportado pelo provider
+ORCHESTRATOR_MAX_TOKENS=
+ORCHESTRATOR_TEMPERATURE=
+ORCHESTRATOR_REASONING_EFFORT=
 
-# Calculator Agent (Grok Code Fast 1)
-CALCULATOR_PROVIDER=openrouter
-CALCULATOR_MODEL=x-ai/grok-code-fast-1
-CALCULATOR_MAX_TOKENS=2000
-CALCULATOR_TEMPERATURE=0.1
+# 4. Subagentes (Calculator, Corrector, Translator, Weather, Vision)
+# Cada um configurável independentemente:
+<AGENT>_PROVIDER=            # openrouter | openai | anthropic | google
+<AGENT>_MODEL=               # Qualquer modelo do provider
+<AGENT>_MAX_TOKENS=
+<AGENT>_TEMPERATURE=
 
-# Weather Agent
-OPENWEATHER_API_KEY=your_openweather_key
-
-# Vision Agent (LiteLLM Multi-Provider)
-VISION_PROVIDER=openrouter                    # openrouter | openai | anthropic
-VISION_MODEL=openai/gpt-4o                    # Multimodal model
-VISION_MAX_TOKENS=2000
-VISION_TEMPERATURE=0.1
-VISION_REASONING_EFFORT=medium                # minimal | low | medium | high
-VISION_CACHE_TTL=600                          # Cache TTL in seconds
-VISION_INCLUDE_USAGE=true
-ENABLE_VISION_POSTPROCESSING=true             # Feature flag
+# 5. External APIs
+OPENWEATHER_API_KEY=         # Para Weather Agent
 ```
+
+**⚠️ Nenhuma Referência Hardcoded**:
+- ❌ Código NÃO contém modelos específicos
+- ✅ Tudo vem do `.env`
+- ✅ Trocar modelos = apenas editar `.env` (zero mudanças de código)
+- ✅ Suporta 400+ modelos via LiteLLM Multi-Provider
+
+**Consulte sempre**:
+- `backend/.env.example` - Template oficial com exemplos comentados
+- [Seção "Consultando Configuração de Modelos Atual"](#🔧-consultando-configuração-de-modelos-atual) acima
 
 ## 📋 Comandos Essenciais
 
@@ -213,9 +271,13 @@ poetry run pytest --cov=src --cov-report=html
 # Testar subagente isolado
 poetry run python scripts/test_agent.py <agent_name> [args]
 
-# Linting
+# Quality Checks (executam automaticamente via pre-commit hooks)
 poetry run ruff check .
+poetry run black --check src/ tests/
 poetry run mypy src/
+
+# Pre-commit (validação completa antes de commit)
+poetry run pre-commit run --all-files  # Ver docs/PRE_COMMIT_GUIDE.md
 ```
 
 **Frontend**:
@@ -259,14 +321,6 @@ npm run lint
 3. Adicionar env vars em `.env.example`
 4. Atualizar testes para mockar `load_config` e `create_litellm_model`
 
-**Modelos recomendados (2025)**:
-- **Orchestrator**: `anthropic/claude-sonnet-4.5` ($3/$15 per 1M) - Advanced reasoning (DEFAULT)
-- Calculator: `deepseek/deepseek-chat-v3.1` ($0.20/$0.80 per 1M)
-- Corrector: `google/gemini-2.5-flash-preview` ($0.30/$2.50 per 1M)
-- Weather: `openai/gpt-4.1-nano` ($0.10/$0.40 per 1M)
-- Translator: `google/gemini-2.5-pro` ($1.25/$10.00 per 1M)
-- Vision: `openai/gpt-4o` ($2.50/$10.00 per 1M) ou `anthropic/claude-3.5-sonnet` ($3/$15)
-
 ## 🧪 Sistema de Testes Isolados
 
 **Bypass do VOXY Orchestrator** para debug rápido:
@@ -280,30 +334,30 @@ npm run lint
 ```bash
 # Testar tradutor
 poetry run python scripts/test_agent.py translator \
-  --text "Hello world" \
-  --target-language "pt-BR"
+--text "Hello world" \
+--target-language "pt-BR"
 
 # Testar Vision Agent
 poetry run python scripts/test_agent.py vision \
-  --image-url "https://example.com/image.jpg" \
-  --query "O que você vê?"
+--image-url "https://example.com/image.jpg" \
+--query "O que você vê?"
 ```
 
 **Exemplo CLI (VOXY Orchestrator)**:
 ```bash
 # Teste simples
 poetry run python scripts/test_agent.py voxy \
-  --message "Traduza 'Hello world' para português"
+--message "Traduza 'Hello world' para português"
 
 # Com imagem (análise multimodal via Vision Agent)
 poetry run python scripts/test_agent.py voxy \
-  --message "Qual emoji é este?" \
-  --image-url "https://example.com/emoji.png"
+--message "Qual emoji é este?" \
+--image-url "https://example.com/emoji.png"
 
 # Benchmark mode
 poetry run python scripts/test_agent.py voxy \
-  --message "Quanto é 2+2?" \
-  --benchmark --iterations 5
+--message "Quanto é 2+2?" \
+--benchmark --iterations 5
 
 # Modo interativo
 poetry run python scripts/test_agent.py --interactive
@@ -339,8 +393,9 @@ poetry run python scripts/test_agent.py --interactive
 
 ## 🎯 Features Principais
 
-**Orchestrator LiteLLM**: VOXY com Claude Sonnet 4.5 + 400+ modelos configuráveis via factory pattern
+**Orchestrator LiteLLM**: VOXY totalmente configurável (400+ modelos via .env)
 **Multi-Agent System**: 5 subagentes (OpenAI Agents SDK + LiteLLM) + Flow Corrections
+**Token Usage Tracking**: Rastreamento centralizado de tokens + cost estimation via LiteLLM (100% tested)
 **Image Management**: Upload, grid responsivo, modal, busca, metadata editing
 **VOXY Web OS**: Interface desktop com 13 wallpapers + Grid responsivo (6 breakpoints)
 **Professional Drag & Drop**: Smart swapping + collision detection
@@ -370,11 +425,133 @@ poetry run python scripts/test_agent.py --interactive
 - Next.js 15 App Router
 
 **Workflow**:
+- **Pre-commit hooks instalados**: Validação automática antes de cada commit (ver [`docs/PRE_COMMIT_GUIDE.md`](./docs/PRE_COMMIT_GUIDE.md))
 - Sempre execute typecheck após mudanças: `npm run typecheck` (frontend), `poetry run mypy src/` (backend)
 - Rode testes antes de commits: `poetry run pytest --cov=src`
 - Use sistema de testes isolados para debug rápido de subagentes
-- Commits devem passar pelo fluxo: lint → typecheck → tests → commit
+- Commits devem passar pelo fluxo: **pre-commit hooks** → lint → typecheck → tests → commit
 - Para features visuais, teste em todos os 6 breakpoints responsivos
+
+## 📚 Documentation-First Approach (CRÍTICO!)
+
+**Lição Aprendida**: Sempre consulte a documentação oficial ANTES de implementar qualquer feature.
+
+### ⚠️ Regra de Ouro: Documente ANTES de Codificar
+
+**SEMPRE use Context7 MCP para consultar documentações** antes de implementar:
+
+1. **ANTES de criar qualquer código**, verifique se a funcionalidade já existe na biblioteca
+2. **ANTES de implementar uma feature**, consulte docs oficiais via Context7
+3. **ANTES de corrigir um bug**, confirme o comportamento esperado na documentação
+
+### 🔍 Como Usar Context7 Corretamente
+
+**Exemplo Real - Token Usage Tracking (2025-10-25)**:
+
+❌ **ERRADO** (o que NÃO fazer):
+```python
+# Tentamos implementar token tracking manualmente
+if hasattr(result, 'usage') and result.usage:  # ❌ Caminho ERRADO
+    tokens = result.usage.total_tokens
+```
+
+✅ **CORRETO** (consultar documentação primeiro):
+```bash
+# 1. Resolver library ID
+mcp__context7__resolve-library-id("openai agents sdk")
+
+# 2. Buscar documentação sobre token usage
+mcp__context7__get-library-docs(
+    context7CompatibleLibraryID="/openai/openai-agents-python",
+    topic="token usage RunResult response tracking"
+)
+
+# Descoberta: OpenAI Agents SDK usa result.context_wrapper.usage
+if hasattr(result, 'context_wrapper') and result.context_wrapper.usage:  # ✅ CORRETO
+    tokens = result.context_wrapper.usage.total_tokens
+```
+
+### 📖 Bibliotecas Principais para Consultar
+
+**Sempre consulte via Context7 antes de usar**:
+
+| Biblioteca | Library ID | Quando Consultar |
+|------------|-----------|------------------|
+| **LiteLLM** | `/berriai/litellm` | Token tracking, cost calculation, model usage |
+| **OpenAI Agents SDK** | `/openai/openai-agents-python` | Agent patterns, Runner API, sessions, usage |
+| **Next.js** | Context7 search | Routing, data fetching, app directory |
+| **Supabase** | Context7 search | Auth, database, storage, realtime |
+| **Radix UI** | Context7 search | Component APIs, accessibility |
+
+### 🎯 Workflow Recomendado
+
+```
+1. 📋 User pede feature/fix
+2. 🔍 PRIMEIRO: Consultar Context7 (library docs)
+3. 📖 Ler padrões oficiais e best practices
+4. 💡 Verificar se feature JÁ existe na lib
+5. ⌨️  ENTÃO: Implementar usando padrões corretos
+6. ✅ Testar e validar
+```
+
+### ⚡ Benefícios Comprovados
+
+**Caso Real**: Token Usage Tracking Implementation
+
+| Abordagem | Tempo | Resultado |
+|-----------|-------|-----------|
+| ❌ **Sem consultar docs** | 2h tentando `result.usage` | FALHA - caminho incorreto |
+| ✅ **Com Context7 docs** | 30min | SUCESSO - `context_wrapper.usage` + testes 100% |
+
+**Economia**: **75% menos tempo** + **solução correta** desde o início
+
+### 🚨 Sinais de Alerta
+
+**PARE e consulte documentação quando**:
+- ❓ "Como faço X com biblioteca Y?"
+- 🤔 "Esse atributo não existe..."
+- 😕 "Por que não está funcionando?"
+- 🔁 "Já tentei 3 formas diferentes..."
+
+**Resposta**: 📚 **Abra Context7 e consulte a documentação oficial!**
+
+### 💡 Exemplo Prático de Consulta
+
+**Problema**: Implementar streaming com LiteLLM
+
+**Workflow Correto**:
+```typescript
+// 1. Resolver library ID
+const libraryId = await resolveLibraryId("litellm");
+
+// 2. Consultar docs sobre streaming
+const docs = await getLibraryDocs({
+    libraryId: "/berriai/litellm",
+    topic: "streaming responses token usage",
+    tokens: 6000
+});
+
+// 3. Implementar seguindo padrão oficial descoberto
+const response = completion({
+    model: "gpt-4",
+    messages: [...],
+    stream: true,
+    stream_options: { include_usage: true }  // ✅ Da documentação!
+});
+```
+
+### ✅ Checklist Antes de Implementar
+
+- [ ] Consultei Context7 para verificar se a funcionalidade existe?
+- [ ] Li os exemplos oficiais da biblioteca?
+- [ ] Verifiquei se minha abordagem está alinhada com os padrões da lib?
+- [ ] Confirmei que não estou "reinventando a roda"?
+
+**Se algum item for "NÃO"**: 🛑 **PARE e consulte a documentação primeiro!**
+
+---
+
+**Resumo**: Context7 é sua **primeira ferramenta**, não a última. Use-o **proativamente** para economizar tempo e implementar soluções corretas desde o início.
 
 ## 🔄 Summary Instructions
 
@@ -387,6 +564,6 @@ Quando usar auto-compact, foque em:
 
 ---
 
-**Sistema multi-agente enterprise-ready com VOXY Orchestrator (Claude Sonnet 4.5) + 5 Subagentes SDK (OpenAI Agents + LiteLLM) + VOXY Web OS + Image Management System + API Architecture DRY-compliant completamente implementado e 100% operacional.**
+**Sistema multi-agente enterprise-ready com VOXY Orchestrator (LiteLLM Multi-Provider) + 5 Subagentes SDK (OpenAI Agents + LiteLLM configuráveis) + Token Usage Tracking Centralizado + VOXY Web OS + Image Management System + API Architecture DRY-compliant + Pre-commit Quality Hooks + Documentation-First Approach completamente implementado e 100% operacional.**
 
-*Última atualização: 2025-10-09 - VOXY Orchestrator LiteLLM Migration (Claude Sonnet 4.5 default via OpenRouter)*
+*Última atualização: 2025-10-25 - Token Usage Tracking System + Documentation-First Approach via Context7*

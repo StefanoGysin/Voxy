@@ -4,7 +4,6 @@ Consolidated and secured - no unauthenticated endpoints.
 """
 
 import hashlib
-import logging
 from datetime import datetime
 from typing import Optional
 
@@ -14,6 +13,7 @@ from fastapi import (
     HTTPException,
     status,
 )
+from loguru import logger
 from pydantic import BaseModel
 
 from ...core.cache.redis_cache import get_redis_cache
@@ -23,8 +23,6 @@ from ...main import get_voxy_system
 from ..middleware.auth import User, get_current_active_user
 from ..middleware.vision_rate_limiter import get_vision_rate_limiter
 
-logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
@@ -33,9 +31,7 @@ class ChatRequest(BaseModel):
 
     message: str
     session_id: Optional[str] = None
-    image_url: Optional[str] = (
-        None  # Support for image analysis with Vision Agent GPT-5
-    )
+    image_url: Optional[str] = None  # Support for image analysis with Vision Agent
 
 
 class ChatResponse(BaseModel):
@@ -50,7 +46,7 @@ class ChatResponse(BaseModel):
     tools_used: list[str] = []  # List of tools/subagents used
     cached: bool = False
     vision_metadata: Optional[dict] = (
-        None  # GPT-5 analysis metadata (model, cost, etc.)
+        None  # Vision analysis metadata (model, cost, etc.)
     )
 
 
@@ -61,7 +57,7 @@ class WebSocketMessage(BaseModel):
     message: str
     session_id: Optional[str] = None
     image_url: Optional[str] = None  # For vision analysis requests
-    vision_metadata: Optional[dict] = None  # GPT-5 analysis metadata
+    vision_metadata: Optional[dict] = None  # Vision analysis metadata
 
 
 @router.post("/", response_model=ChatResponse)
@@ -92,7 +88,7 @@ async def chat_with_voxy(
             rate_limiter = get_vision_rate_limiter()
             # Check rate limits before processing
             await rate_limiter.check_upload_rate_limit(current_user.id)
-            # Estimated cost for GPT-5 image analysis
+            # Estimated cost for Vision Agent image analysis
             estimated_cost = 0.05  # $0.05 estimated per analysis
             await rate_limiter.check_cost_limits(current_user.id, estimated_cost)
 
@@ -153,7 +149,15 @@ async def chat_with_voxy(
                 vision_metadata = metadata.get("vision_metadata")
                 cached = False
             except Exception as voxy_error:
-                logger.error(f"❌ VOXY system error: {voxy_error}")
+                logger.bind(event="CHAT_API|ERROR").error(
+                    "VOXY system error",
+                    error_type=type(voxy_error).__name__,
+                    error_msg=str(voxy_error),
+                    user_id=current_user.id,
+                    session_id=session_id,
+                    has_vision=bool(request.image_url),
+                    exc_info=True,
+                )
                 response_text = f"Desculpe, ocorreu um erro interno: {str(voxy_error)}"
                 agent_type = "error"
                 vision_metadata = None

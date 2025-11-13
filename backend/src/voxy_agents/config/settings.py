@@ -9,7 +9,8 @@ from typing import Any
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# override=True ensures .env values take precedence over shell exports
+load_dotenv(override=True)
 
 
 class Settings:
@@ -60,20 +61,18 @@ class Settings:
         self.log_level = os.getenv("LOG_LEVEL", "INFO")
         self.environment = os.getenv("ENVIRONMENT", "development")
 
-        # Model Configuration (defaults for 2025)
+        # Model Configuration - Configure in .env (see .env.example)
         # LEGACY: VOXY_ORCHESTRATOR_MODEL is deprecated - use ORCHESTRATOR_* vars in models_config.py
         # This field is maintained for backward compatibility only
         self.orchestrator_model = os.getenv(
-            "VOXY_ORCHESTRATOR_MODEL", "gpt-4o"
+            "VOXY_ORCHESTRATOR_MODEL"
         )  # Deprecated: Use load_orchestrator_config() instead
-        self.subagent_efficient_model = os.getenv(
-            "SUBAGENT_EFFICIENT_MODEL", "gpt-4o-mini"
-        )
-        self.subagent_api_model = os.getenv("SUBAGENT_API_MODEL", "gpt-4o-mini")
+        self.subagent_efficient_model = os.getenv("SUBAGENT_EFFICIENT_MODEL")
+        self.subagent_api_model = os.getenv("SUBAGENT_API_MODEL")
 
-        # Vision Agent Configuration (GPT-5 + fallback)
-        self.vision_primary_model = os.getenv("VISION_PRIMARY_MODEL", "gpt-5")
-        self.vision_fallback_model = os.getenv("VISION_FALLBACK_MODEL", "gpt-4o")
+        # Vision Agent Configuration - Configure in .env (see .env.example)
+        self.vision_primary_model = os.getenv("VISION_PRIMARY_MODEL")
+        self.vision_fallback_model = os.getenv("VISION_FALLBACK_MODEL")
 
         # Vision Agent Rate Limiting
         self.vision_rate_limit_per_minute = int(
@@ -101,24 +100,24 @@ class Settings:
             os.getenv("ENABLE_VISION_POSTPROCESSING", "true").lower() == "true"
         )
 
-        # Calculator Agent Configuration (via LiteLLM)
+        # Calculator Agent Configuration (via LiteLLM) - Configure in .env (see .env.example)
         self.calculator_provider = os.getenv("CALCULATOR_PROVIDER", "openrouter")
-        self.calculator_model = os.getenv("CALCULATOR_MODEL", "x-ai/grok-code-fast-1")
+        self.calculator_model = os.getenv("CALCULATOR_MODEL")
         self.calculator_max_tokens = int(os.getenv("CALCULATOR_MAX_TOKENS", "2000"))
         self.calculator_temperature = float(os.getenv("CALCULATOR_TEMPERATURE", "0.1"))
         self.calculator_include_usage = (
             os.getenv("CALCULATOR_INCLUDE_USAGE", "true").lower() == "true"
         )
 
-        # Corrector Agent Configuration (via LiteLLM)
+        # Corrector Agent Configuration (via LiteLLM) - Configure in .env (see .env.example)
         self.corrector_provider = os.getenv("CORRECTOR_PROVIDER", "openai")
-        self.corrector_model = os.getenv("CORRECTOR_MODEL", "gpt-4o-mini")
+        self.corrector_model = os.getenv("CORRECTOR_MODEL")
         self.corrector_max_tokens = int(os.getenv("CORRECTOR_MAX_TOKENS", "2000"))
         self.corrector_temperature = float(os.getenv("CORRECTOR_TEMPERATURE", "0.1"))
 
-        # Weather Agent Configuration (via LiteLLM)
+        # Weather Agent Configuration (via LiteLLM) - Configure in .env (see .env.example)
         self.weather_provider = os.getenv("WEATHER_PROVIDER", "openai")
-        self.weather_model = os.getenv("WEATHER_MODEL", "gpt-4o-mini")
+        self.weather_model = os.getenv("WEATHER_MODEL")
         self.weather_max_tokens = int(os.getenv("WEATHER_MAX_TOKENS", "2000"))
         self.weather_temperature = float(os.getenv("WEATHER_TEMPERATURE", "0.1"))
 
@@ -145,8 +144,8 @@ def load_model_config() -> dict[str, Any]:
                 "name": settings.vision_primary_model,
                 "max_tokens": 2000,
                 "temperature": 0.1,
-                "cost_per_input_token": 0.00001,  # $0.01 per 1K tokens (GPT-5 estimated)
-                "cost_per_output_token": 0.00003,  # $0.03 per 1K tokens (GPT-5 estimated)
+                "cost_per_input_token": 0.00001,  # $0.01 per 1K tokens (example pricing)
+                "cost_per_output_token": 0.00003,  # $0.03 per 1K tokens (example pricing)
                 "cost_per_image": 0.02,  # $0.02 per image analysis
                 "rate_limit_per_minute": settings.vision_rate_limit_per_minute,
                 "rate_limit_per_hour": settings.vision_rate_limit_per_hour,
@@ -159,9 +158,9 @@ def load_model_config() -> dict[str, Any]:
                 "name": settings.vision_fallback_model,
                 "max_tokens": 2000,
                 "temperature": 0.1,
-                "cost_per_input_token": 0.000005,  # $5 per 1M tokens (GPT-4o)
-                "cost_per_output_token": 0.000015,  # $15 per 1M tokens (GPT-4o)
-                "cost_per_image": 0.01,  # $0.01 per image analysis (GPT-4o)
+                "cost_per_input_token": 0.000005,  # $5 per 1M tokens (example pricing)
+                "cost_per_output_token": 0.000015,  # $15 per 1M tokens (example pricing)
+                "cost_per_image": 0.01,  # $0.01 per image analysis
             },
         }
     }

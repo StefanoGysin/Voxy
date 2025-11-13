@@ -10,15 +10,13 @@ Endpoints:
 - GET /api/test/agents/{agent_name} - Informações sobre agente específico
 """
 
-import logging
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from ...utils.test_subagents import SubagentTester, TestResult
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["testing"])
 
@@ -132,7 +130,7 @@ async def test_subagent(request: SubagentTestRequest):
             "response": "Olá mundo",
             "metadata": {
                 "processing_time": 1.234,
-                "model_used": "gpt-4o-mini",
+                "model_used": "gpt-4o-mini",  # Example - actual model from .env config
                 "cost": 0.0001,
                 ...
             }
@@ -143,9 +141,11 @@ async def test_subagent(request: SubagentTestRequest):
         if request.agent_name == "voxy":
             from ...utils.test_subagents import test_voxy_orchestrator
 
-            logger.info(
-                f"🧪 Testing VOXY Orchestrator via HTTP API "
-                f"(bypass_cache={request.bypass_cache})"
+            logger.bind(event="TEST_API|VOXY_TEST").info(
+                "Testing VOXY Orchestrator via HTTP API",
+                bypass_cache=request.bypass_cache,
+                bypass_rate_limit=request.bypass_rate_limit,
+                has_image=bool(request.input_data.get("image_url")),
             )
 
             # Validate input_data
@@ -186,9 +186,11 @@ async def test_subagent(request: SubagentTestRequest):
         )
 
         # Executar teste
-        logger.info(
-            f"🧪 Testing {request.agent_name} via HTTP API "
-            f"(bypass_cache={request.bypass_cache})"
+        logger.bind(event="TEST_API|SUBAGENT_TEST").info(
+            "Testing subagent via HTTP API",
+            agent_name=request.agent_name,
+            bypass_cache=request.bypass_cache,
+            bypass_rate_limit=request.bypass_rate_limit,
         )
 
         result: TestResult = await tester.test_subagent(
@@ -207,12 +209,23 @@ async def test_subagent(request: SubagentTestRequest):
 
     except ValueError as e:
         # Agent name inválido ou input_data inválido
-        logger.error(f"❌ Invalid request: {e}")
+        logger.bind(event="TEST_API|ERROR").error(
+            "Invalid request",
+            error_type="ValueError",
+            error_msg=str(e),
+            agent_name=request.agent_name,
+        )
         raise HTTPException(status_code=400, detail=str(e))
 
     except Exception as e:
         # Erro interno
-        logger.error(f"❌ Test failed: {e}")
+        logger.bind(event="TEST_API|ERROR").error(
+            "Test failed",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            agent_name=request.agent_name,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
             detail=f"Internal test error: {str(e)}",
@@ -265,7 +278,7 @@ async def get_agent_info(agent_name: str):
         Response 200:
         {
             "name": "translator",
-            "model": "gpt-4o-mini",
+            "model": "gpt-4o-mini",  # Example - actual model from .env config
             "test_strategy": "sdk_runner",
             "capabilities": [
                 "Translation between languages",
@@ -289,7 +302,12 @@ async def get_agent_info(agent_name: str):
         )
 
     except ValueError as e:
-        logger.error(f"❌ Agent not found: {agent_name}")
+        logger.bind(event="TEST_API|ERROR").error(
+            "Agent not found",
+            error_type="ValueError",
+            error_msg=str(e),
+            agent_name=agent_name,
+        )
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -359,7 +377,10 @@ async def batch_test_subagents(request: BatchTestRequest):
     successful = 0
     failed = 0
 
-    logger.info(f"🧪 Batch testing {len(request.tests)} subagents")
+    logger.bind(event="TEST_API|BATCH_TEST").info(
+        "Batch testing subagents",
+        tests_count=len(request.tests),
+    )
 
     # Executar testes sequencialmente
     for test_req in request.tests:
@@ -374,7 +395,12 @@ async def batch_test_subagents(request: BatchTestRequest):
 
         except HTTPException as e:
             # Erro no teste individual
-            logger.error(f"❌ Batch test failed for {test_req.agent_name}: {e.detail}")
+            logger.bind(event="TEST_API|ERROR").error(
+                "Batch test failed for agent",
+                agent_name=test_req.agent_name,
+                error_detail=e.detail,
+                status_code=e.status_code,
+            )
             results.append(
                 SubagentTestResponse(
                     success=False,
@@ -386,8 +412,11 @@ async def batch_test_subagents(request: BatchTestRequest):
             )
             failed += 1
 
-    logger.info(
-        f"✅ Batch testing completed: {successful} successful, {failed} failed"
+    logger.bind(event="TEST_API|BATCH_TEST").info(
+        "Batch testing completed",
+        successful=successful,
+        failed=failed,
+        total=len(results),
     )
 
     return BatchTestResponse(
@@ -434,7 +463,12 @@ async def test_health_check():
         }
 
     except Exception as e:
-        logger.error(f"❌ Health check failed: {e}")
+        logger.bind(event="TEST_API|ERROR").error(
+            "Health check failed",
+            error_type=type(e).__name__,
+            error_msg=str(e),
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=503,
             detail=f"Testing system unhealthy: {str(e)}",
