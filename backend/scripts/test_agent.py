@@ -77,7 +77,11 @@ def print_header(text: str):
 
 
 async def test_translator(args):
-    """Test translator agent."""
+    """Test translator agent (routing to SDK or LangGraph)."""
+    if args.engine == "langgraph":
+        return await test_translator_langgraph(args)
+
+    # SDK implementation
     input_data = {
         "text": args.text,
         "target_language": args.target_language,
@@ -86,6 +90,129 @@ async def test_translator(args):
         input_data["source_language"] = args.source_language
 
     return await run_test("translator", input_data, args)
+
+
+async def test_translator_langgraph(args):
+    """Test translator with LangGraph engine."""
+    from langgraph.graph import END, START, StateGraph
+
+    from voxy_agents.langgraph.checkpointer import (
+        CheckpointerType,
+        create_checkpointer,
+        get_checkpoint_config,
+    )
+    from voxy_agents.langgraph.graph_state import VoxyState, create_initial_state
+    from voxy_agents.langgraph.nodes import create_translator_node
+
+    print_header("Testing TRANSLATOR (LangGraph Engine)")
+
+    # Print input data
+    print_colored("📝 Input Data:", Colors.OKCYAN + Colors.BOLD)
+    print(f"  text: {args.text}")
+    print(f"  target_language: {args.target_language}")
+    if args.source_language:
+        print(f"  source_language: {args.source_language}")
+    print(f"  engine: {Colors.WARNING}langgraph{Colors.ENDC}")
+    print()
+
+    # Build translation prompt
+    if args.source_language:
+        prompt = f"Translate the following text from {args.source_language} to {args.target_language}:\n\n{args.text}"
+    else:
+        prompt = (
+            f"Translate the following text to {args.target_language}:\n\n{args.text}"
+        )
+
+    # Create simple graph with translator node
+    print_colored("🏗️  Building LangGraph...", Colors.OKCYAN)
+    translator_node = create_translator_node()
+
+    builder = StateGraph(VoxyState)
+    builder.add_node("translator", translator_node)
+    builder.add_edge(START, "translator")
+    builder.add_edge("translator", END)
+
+    # Compile with in-memory checkpointer
+    checkpointer = create_checkpointer(CheckpointerType.MEMORY)
+    graph = builder.compile(checkpointer=checkpointer)
+
+    print_colored("✅ Graph compiled successfully\n", Colors.OKGREEN)
+
+    # Benchmark mode
+    if args.benchmark:
+        print_colored(
+            f"🏁 Benchmark Mode: {args.iterations} iterations\n", Colors.WARNING
+        )
+
+        times = []
+        for i in range(args.iterations):
+            print_colored(f"Iteration {i + 1}/{args.iterations}...", Colors.OKBLUE)
+
+            start = datetime.now()
+            thread_id = f"test-{i}"
+            config = get_checkpoint_config(thread_id=thread_id)
+
+            state = create_initial_state(
+                messages=[{"role": "user", "content": prompt}], thread_id=thread_id
+            )
+
+            result = graph.invoke(state, config=config)
+            elapsed = (datetime.now() - start).total_seconds()
+            times.append(elapsed)
+
+        # Print benchmark results
+        print_header("Benchmark Results")
+        print_colored("⏱️  Timing Statistics:", Colors.OKCYAN + Colors.BOLD)
+        print(f"  Min:     {min(times):.3f}s")
+        print(f"  Max:     {max(times):.3f}s")
+        print(f"  Average: {sum(times) / len(times):.3f}s")
+        print(f"  Total:   {sum(times):.3f}s")
+
+        return result
+
+    # Single test execution
+    print_colored("⚡ Running test...\n", Colors.WARNING)
+
+    start_time = datetime.now()
+    thread_id = f"test-{start_time.timestamp()}"
+    config = get_checkpoint_config(thread_id=thread_id)
+
+    state = create_initial_state(
+        messages=[{"role": "user", "content": prompt}], thread_id=thread_id
+    )
+
+    result = graph.invoke(state, config=config)
+    total_time = (datetime.now() - start_time).total_seconds()
+
+    # Print results
+    print_header("Results")
+
+    print_colored("✅ Status:", Colors.OKGREEN + Colors.BOLD)
+    print("  Success: True")
+    print()
+
+    print_colored("🤖 Response:", Colors.OKCYAN + Colors.BOLD)
+    # Extract response from messages
+    if result["messages"]:
+        last_message = result["messages"][-1]
+        response_text = (
+            last_message.content
+            if hasattr(last_message, "content")
+            else str(last_message)
+        )
+        print(f"  {response_text}")
+    print()
+
+    print_colored("⏱️  Performance:", Colors.OKCYAN + Colors.BOLD)
+    print(f"  Processing time: {total_time:.3f}s")
+    print()
+
+    print_colored("📊 Context:", Colors.OKCYAN + Colors.BOLD)
+    print(f"  Thread ID: {result['context']['thread_id']}")
+    print(f"  Message count: {len(result['messages'])}")
+    print()
+
+    return result
 
 
 async def test_corrector(args):
@@ -579,6 +706,13 @@ def create_parser():
         "-i",
         action="store_true",
         help="Run in interactive mode",
+    )
+    parser.add_argument(
+        "--engine",
+        type=str,
+        choices=["sdk", "langgraph"],
+        default="sdk",
+        help="Engine to use (sdk=OpenAI Agents SDK, langgraph=LangGraph) (default: sdk)",
     )
     parser.add_argument(
         "--bypass-cache",

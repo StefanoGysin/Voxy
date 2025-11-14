@@ -1,0 +1,150 @@
+"""
+LangGraph Checkpointer Utilities
+
+Provides factory functions for creating LangGraph checkpointers:
+- InMemorySaver: For POC, testing, and development
+- SqliteSaver: For production single-instance persistence
+- (Future) PostgresSaver: For multi-instance Supabase persistence
+
+Reference: LangGraph Persistence documentation
+https://langchain-ai.github.io/langgraph/concepts/persistence/
+"""
+
+from enum import Enum
+from typing import TYPE_CHECKING, Any
+
+from loguru import logger
+
+if TYPE_CHECKING:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
+
+
+class CheckpointerType(str, Enum):
+    """Supported checkpointer types."""
+
+    MEMORY = "memory"
+    SQLITE = "sqlite"
+    POSTGRES = "postgres"  # Future implementation
+
+
+def create_checkpointer(
+    checkpointer_type: CheckpointerType | str = CheckpointerType.MEMORY,
+    db_path: str | None = None,
+) -> "BaseCheckpointSaver[Any]":
+    """
+    Factory function to create LangGraph checkpointers.
+
+    Args:
+        checkpointer_type: Type of checkpointer (memory, sqlite, postgres)
+        db_path: Database path for persistent checkpointers (SQLite/Postgres)
+                 Default: "voxy_graph.db" for SQLite
+
+    Returns:
+        BaseCheckpointSaver instance
+
+    Raises:
+        ValueError: If checkpointer_type is invalid
+        ImportError: If required checkpoint package is not installed
+
+    Examples:
+        >>> # POC/Testing - In-memory checkpointer
+        >>> checkpointer = create_checkpointer(CheckpointerType.MEMORY)
+
+        >>> # Development - SQLite checkpointer
+        >>> checkpointer = create_checkpointer(
+        ...     CheckpointerType.SQLITE,
+        ...     db_path="checkpoints.db"
+        ... )
+
+        >>> # Production - PostgreSQL (future)
+        >>> checkpointer = create_checkpointer(
+        ...     CheckpointerType.POSTGRES,
+        ...     db_path="postgresql://user:pass@localhost/voxy"
+        ... )
+    """
+    checkpointer_type = CheckpointerType(checkpointer_type)
+
+    if checkpointer_type == CheckpointerType.MEMORY:
+        logger.bind(event="CHECKPOINTER|INIT").info(
+            "Creating InMemorySaver checkpointer (non-persistent)"
+        )
+        from langgraph.checkpoint.memory import InMemorySaver
+
+        return InMemorySaver()
+
+    elif checkpointer_type == CheckpointerType.SQLITE:
+        db_path = db_path or "voxy_graph.db"
+        logger.bind(event="CHECKPOINTER|INIT").info(
+            "Creating SqliteSaver checkpointer", db_path=db_path
+        )
+        try:
+            from langgraph.checkpoint.sqlite import SqliteSaver
+        except ImportError as e:
+            raise ImportError(
+                "langgraph-checkpoint-sqlite not installed. "
+                "Run: poetry add langgraph-checkpoint-sqlite"
+            ) from e
+
+        # SqliteSaver.from_conn_string handles SQLite connection management
+        return SqliteSaver.from_conn_string(db_path)  # type: ignore[return-value]
+
+    elif checkpointer_type == CheckpointerType.POSTGRES:
+        if not db_path:
+            raise ValueError("db_path required for PostgreSQL checkpointer")
+
+        logger.bind(event="CHECKPOINTER|INIT").info(
+            "Creating PostgresSaver checkpointer (future implementation)",
+            db_uri=db_path,
+        )
+        try:
+            from langgraph.checkpoint.postgres import PostgresSaver
+        except ImportError as e:
+            raise ImportError(
+                "langgraph-checkpoint-postgres not installed. "
+                "Run: poetry add langgraph-checkpoint-postgres"
+            ) from e
+
+        # PostgresSaver.from_conn_string for Supabase Postgres
+        return PostgresSaver.from_conn_string(db_path)
+
+    else:
+        raise ValueError(
+            f"Invalid checkpointer_type: {checkpointer_type}. "
+            f"Supported: {[t.value for t in CheckpointerType]}"
+        )
+
+
+def get_checkpoint_config(thread_id: str, checkpoint_id: str | None = None) -> dict:
+    """
+    Create LangGraph config dict for checkpoint invocation.
+
+    Args:
+        thread_id: Thread ID for checkpoint isolation (maps to session_id)
+        checkpoint_id: Optional specific checkpoint ID for time-travel
+
+    Returns:
+        Config dict for graph.invoke(..., config=...)
+
+    Examples:
+        >>> # Standard invocation (latest checkpoint)
+        >>> config = get_checkpoint_config(thread_id="session-123")
+        >>> graph.invoke({"messages": [...]}, config=config)
+
+        >>> # Time-travel to specific checkpoint
+        >>> config = get_checkpoint_config(
+        ...     thread_id="session-123",
+        ...     checkpoint_id="1ef4f797-8335-6428-8001-8a1503f9b875"
+        ... )
+        >>> graph.invoke(None, config=config)  # Resume from checkpoint
+    """
+    config: dict = {"configurable": {"thread_id": thread_id}}
+
+    if checkpoint_id:
+        config["configurable"]["checkpoint_id"] = checkpoint_id
+        logger.bind(event="CHECKPOINTER|TIME_TRAVEL").debug(
+            "Time-travel config created",
+            thread_id=thread_id,
+            checkpoint_id=checkpoint_id,
+        )
+
+    return config

@@ -1,8 +1,7 @@
 # VOXY Agents - Sistema Multi-Agente
 
-Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados + Vision Agent GPT-5 integrado, apresentado através de uma interface **VOXY Web OS** completa.
+Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados, apresentado através de uma interface **VOXY Web OS** completa.
 
-> ⚠️ **OpenAI Agents SDK v0.4.2 disponível**: Requer migração (breaking changes). Ver [.safe-zone/migration-plan.md] para detalhes.
 
 > 📚 Para histórico detalhado de implementações e features, consulte [@HISTORY.md](./HISTORY.md)
 
@@ -29,12 +28,7 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 ├── Architecture: Factory pattern (models_config.py + llm_factory.py)
 ├── Flexibility: 400+ modelos disponíveis (OpenRouter, OpenAI, Anthropic, Google)
 └── 5 Subagentes SDK (OpenAI Agents SDK + LiteLLM - 400+ modelos)
-  ├── Translator, Corrector, Weather, Calculator (LiteLLM configuráveis)
-  └── Vision Agent (OpenAI Agents SDK + LiteLLM Multi-Provider)
-      ├── Dual-Path: Bypass direto + Decisão VOXY
-      ├── Cache: L1 memory + L2 Redis
-      ├── Provider: openrouter | openai | anthropic
-      └── Features: Adaptive reasoning + Cost tracking
+  └── Translator, Corrector, Weather, Calculator, vision (LiteLLM configuráveis)
 ├── Image Management System
 │   ├── Upload: Drag & drop + validation + progress tracking
 │   ├── Storage: Supabase Storage + organized paths
@@ -48,12 +42,12 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 ```
 
 ### Vision Agent Dual-Path
-- **PATH 1 (Bypass)**: `image_url + keywords` → Vision Agent direto (7-8s)
-- **PATH 2 (VOXY)**: URL no texto → VOXY decide → @function_tool (9-10s)
+- **PATH 1 (Bypass)**: `image_url + keywords` → Vision Agent direto 
+- **PATH 2 (VOXY)**: URL no texto → VOXY decide → @function_tool. 
 
 ## 📋 Stack Tecnológico
 
-**Backend**: Python 3.12+ (min 3.12.3), Poetry 2.1.4, FastAPI, Uvicorn
+**Backend**: Python 3.12+, Poetry 2.1.4, FastAPI, Uvicorn
 **AI**: OpenAI Agents SDK 0.3.3, LiteLLM 1.75.7+ Multi-Provider (400+ modelos configuráveis via .env)
 **Database**: Supabase (PostgreSQL + Auth + Storage)
 **Cache**: Redis 5.0+ (Token blacklisting + Vision cache)
@@ -61,49 +55,6 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 **Web OS**: EnhancedOSDashboard, WallpaperSystem, Professional Drag & Drop
 **Security**: JWT + JTI (24-hour expiration), Remember Me, CORS, RLS policies
 
-## 📁 Estrutura do Projeto
-
-```
-voxy/
-├── CLAUDE.md                  # Este arquivo (instruções para Claude)
-├── HISTORY.md                 # Histórico detalhado de implementações
-├── backend/
-│   ├── src/voxy_agents/
-│   │   ├── core/
-│   │   │   ├── subagents/      # 4 agentes + vision_agent.py
-│   │   │   ├── voxy_orchestrator.py
-│   │   │   ├── auth_token_manager.py # JWT + Redis blacklisting
-│   │   │   ├── cache/          # Redis + Vision cache
-│   │   │   └── optimization/   # Adaptive reasoning
-│   │   ├── api/
-│   │   │   ├── models.py       # Modelos compartilhados (DRY principle)
-│   │   │   └── routes/         # 6 módulos API + auth
-│   │   ├── config/             # models_config.py (LiteLLM)
-│   │   └── utils/              # llm_factory.py + usage_tracker.py + test_subagents.py
-│   ├── tests/                  # 213+ testes (89% coverage)
-│   ├── scripts/                # test_agent.py (CLI testing)
-│   └── pyproject.toml          # Poetry config
-└── frontend/
-  ├── src/components/
-  │   ├── os/                 # VOXY Web OS Components
-  │   │   ├── EnhancedOSDashboard.tsx
-  │   │   ├── WallpaperSystem.tsx (13 presets)
-  │   │   ├── AppIcon.tsx (draggable)
-  │   │   ├── DateTimeWidget.tsx
-  │   │   ├── DragDropProvider.tsx (smart collision)
-  │   │   └── hooks/          # useResponsiveGrid, useProtectedAreas
-  │   ├── images/             # Image Management System (5 components)
-  │   ├── ui/                 # Radix UI components
-  │   ├── auth/               # Enhanced with Remember Me
-  │   └── chat/               # Integrated VOXY Chat
-  ├── lib/
-  │   ├── api/images.ts       # Image Management API client
-  │   └── store/              # os-store, auth-store, session-store
-  └── src/app/
-      ├── page.tsx            # VOXY Web OS main interface
-      ├── chat/page.tsx       # Chat application
-      └── images/page.tsx     # Image Management page
-```
 
 ## 📁 Estrutura de Documentação
 
@@ -119,7 +70,7 @@ voxy/
   - Contém documentação pública e permanente do projeto
   - Apenas documentação finalizada e aprovada
 
-**Regra**: Claude pode criar documentação livremente em `.safe-zone/` mas NUNCA em `docs/` sem autorização explícita.
+**Regra**: pode criar documentação livremente em `.safe-zone/` mas NUNCA em `docs/` sem autorização explícita.
 
 ## 🔧 Consultando Configuração de Modelos Atual
 
@@ -136,27 +87,6 @@ Para saber qual modelo está **realmente sendo usado** no ambiente atual:
 
 3. **Flexibilidade**: Qualquer referência a "Claude Sonnet 4.5", "GPT-4o", etc. na documentação
    refere-se aos **defaults sugeridos**, não a requisitos fixos.
-
-## 🧪 Testing & Quality
-
-**Coverage**:
-- Vision Agent: 74% (15 testes unitários - SDK pattern)
-- Remember Me System: 100% funcional (integração completa)
-- Auth System: JWT + Redis blacklisting operacional
-- Core Modules: 85%+ coverage
-- Total Tests: 213+ testes passando
-
-**Performance Metrics**:
-```
-- Mensagem simples: ~1.5s
-- Vision análise (cache miss): 7-8s
-- Vision cache hit: <1s
-- Remember Me auto-login: <2s
-- Upload imagem: <3s
-- WebSocket latency: <100ms
-- Drag & Drop: <50ms snap time
-- Grid adaptação: <200ms breakpoint change
-```
 
 ## ⚙️ Configuração Desenvolvimento
 
@@ -190,7 +120,6 @@ poetry run python scripts/test_agent.py --interactive
 - **VOXY Chat**: http://localhost:3000/chat (integrado ao OS)
 - **Image Manager**: http://localhost:3000/images (gerenciamento de imagens)
 - **Authentication**: http://localhost:3000/auth/login
-- **Remember Me Debug**: http://localhost:3000/test-remember-me
 
 ## 🔐 Configurações de Ambiente
 
@@ -322,13 +251,6 @@ npm run lint
 4. Atualizar testes para mockar `load_config` e `create_litellm_model`
 
 ## 🧪 Sistema de Testes Isolados
-
-**Bypass do VOXY Orchestrator** para debug rápido:
-- Debug 18x mais rápido: 37s → 2s (standard agents)
-- 4 componentes: Módulo principal, Testes unitários, CLI script, HTTP endpoints
-- 6 agentes testáveis: 5 subagentes + VOXY Orchestrator
-- 5 endpoints HTTP: `/api/test/subagent`, `/api/test/agents`, etc.
-- CLI rico: ANSI colors, interactive mode, benchmark, export JSON/CSV
 
 **Exemplo CLI (Subagentes)**:
 ```bash
