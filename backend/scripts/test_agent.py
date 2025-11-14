@@ -215,6 +215,179 @@ async def test_translator_langgraph(args):
     return result
 
 
+async def test_voxy_langgraph(args):
+    """Test VOXY Orchestrator with LangGraph engine (Phase 2 complete graph)."""
+    from voxy_agents.langgraph.checkpointer import (
+        CheckpointerType,
+        get_checkpoint_config,
+    )
+    from voxy_agents.langgraph.graph_builder import create_phase2_graph
+    from voxy_agents.langgraph.graph_state import create_initial_state
+
+    print_header("Testing VOXY ORCHESTRATOR (LangGraph Engine - Phase 2)")
+
+    # Print input data
+    print_colored("📝 Input Data:", Colors.OKCYAN + Colors.BOLD)
+    print(f"  message: {args.message}")
+    if args.image_url:
+        display_url = args.image_url
+        if len(display_url) > 100:
+            display_url = display_url[:100] + "..."
+        print(f"  image_url: {display_url}")
+    print(f"  engine: {Colors.WARNING}langgraph{Colors.ENDC}")
+    print()
+
+    # Create Phase 2 complete graph
+    print_colored("🏗️  Building Phase 2 LangGraph...", Colors.OKCYAN)
+    print("  ├─ Entry Router (PATH1 vs PATH2 decision)")
+    print("  ├─ Vision Bypass Stub (PATH1 direct execution)")
+    print("  ├─ Supervisor Stub (PATH2 acknowledgment)")
+    print("  └─ Translator Node (from Phase 1)")
+    print()
+
+    graph = create_phase2_graph(checkpointer_type=CheckpointerType.MEMORY)
+
+    print_colored("✅ Graph compiled successfully\n", Colors.OKGREEN)
+
+    # Benchmark mode
+    if args.benchmark:
+        print_colored(
+            f"🏁 Benchmark Mode: {args.iterations} iterations\n", Colors.WARNING
+        )
+
+        times = []
+        routes_taken = []
+
+        for i in range(args.iterations):
+            print_colored(f"Iteration {i + 1}/{args.iterations}...", Colors.OKBLUE)
+
+            start = datetime.now()
+            thread_id = f"test-voxy-{i}"
+            config = get_checkpoint_config(thread_id=thread_id)
+
+            # Build context
+            context = {}
+            if args.image_url:
+                context["image_url"] = args.image_url
+
+            state = create_initial_state(
+                messages=[{"role": "user", "content": args.message}],
+                thread_id=thread_id,
+            )
+            state["context"].update(context)
+
+            result = graph.invoke(state, config=config)
+            elapsed = (datetime.now() - start).total_seconds()
+
+            times.append(elapsed)
+
+            # Determine route taken (heuristic based on response)
+            if result["messages"]:
+                last_message = result["messages"][-1]
+                content = (
+                    last_message.content
+                    if hasattr(last_message, "content")
+                    else str(last_message)
+                )
+                if "Vision analysis would be performed" in content:
+                    routes_taken.append("PATH1 (vision_bypass)")
+                elif "VOXY Supervisor received your request" in content:
+                    routes_taken.append("PATH2 (supervisor)")
+                else:
+                    routes_taken.append("PATH2 (subagent)")
+
+        # Print benchmark results
+        print_header("Benchmark Results")
+
+        print_colored("⏱️  Timing Statistics:", Colors.OKCYAN + Colors.BOLD)
+        print(f"  Min:     {min(times):.3f}s")
+        print(f"  Max:     {max(times):.3f}s")
+        print(f"  Average: {sum(times) / len(times):.3f}s")
+        print(f"  Total:   {sum(times):.3f}s")
+
+        if routes_taken:
+            from collections import Counter
+
+            route_counts = Counter(routes_taken)
+            print_colored("\n🛤️  Routes Taken:", Colors.OKCYAN + Colors.BOLD)
+            for route, count in route_counts.most_common():
+                print(f"  {route}: {count} times")
+
+        return result
+
+    # Single test execution
+    print_colored("⚡ Running test...\n", Colors.WARNING)
+
+    start_time = datetime.now()
+    thread_id = f"test-voxy-{start_time.timestamp()}"
+    config = get_checkpoint_config(thread_id=thread_id)
+
+    # Build context
+    context = {}
+    if args.image_url:
+        context["image_url"] = args.image_url
+
+    state = create_initial_state(
+        messages=[{"role": "user", "content": args.message}],
+        thread_id=thread_id,
+    )
+    state["context"].update(context)
+
+    result = graph.invoke(state, config=config)
+    total_time = (datetime.now() - start_time).total_seconds()
+
+    # Print results
+    print_header("Results")
+
+    print_colored("✅ Status:", Colors.OKGREEN + Colors.BOLD)
+    print("  Success: True")
+    print()
+
+    print_colored("🤖 Response:", Colors.OKCYAN + Colors.BOLD)
+    if result["messages"]:
+        last_message = result["messages"][-1]
+        response_text = (
+            last_message.content
+            if hasattr(last_message, "content")
+            else str(last_message)
+        )
+        print(f"  {response_text}")
+    print()
+
+    # Determine route taken
+    route_taken = "unknown"
+    if result["messages"]:
+        last_message = result["messages"][-1]
+        content = (
+            last_message.content
+            if hasattr(last_message, "content")
+            else str(last_message)
+        )
+        if "Vision analysis would be performed" in content:
+            route_taken = "PATH1 (vision_bypass)"
+        elif "VOXY Supervisor received your request" in content:
+            route_taken = "PATH2 (supervisor)"
+        else:
+            route_taken = "PATH2 (subagent)"
+
+    print_colored("🛤️  Routing:", Colors.OKCYAN + Colors.BOLD)
+    print(f"  Route taken: {route_taken}")
+    if result.get("context", {}).get("vision_analysis"):
+        print("  Vision analysis: Present")
+    print()
+
+    print_colored("⏱️  Performance:", Colors.OKCYAN + Colors.BOLD)
+    print(f"  Processing time: {total_time:.3f}s")
+    print()
+
+    print_colored("📊 Context:", Colors.OKCYAN + Colors.BOLD)
+    print(f"  Thread ID: {result['context']['thread_id']}")
+    print(f"  Message count: {len(result['messages'])}")
+    print()
+
+    return result
+
+
 async def test_corrector(args):
     """Test corrector agent."""
     input_data = {"text": args.text}
@@ -251,10 +424,14 @@ async def test_vision(args):
 
 
 async def test_voxy(args):
-    """Test VOXY Orchestrator."""
+    """Test VOXY Orchestrator (routing to SDK or LangGraph)."""
+    if args.engine == "langgraph":
+        return await test_voxy_langgraph(args)
+
+    # SDK implementation
     from voxy_agents.utils.test_subagents import test_voxy_orchestrator
 
-    print_header("Testing VOXY ORCHESTRATOR")
+    print_header("Testing VOXY ORCHESTRATOR (SDK)")
 
     # Print input data
     print_colored("📝 Input Data:", Colors.OKCYAN + Colors.BOLD)

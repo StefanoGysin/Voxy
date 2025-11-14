@@ -1,9 +1,14 @@
 """
 Chat routes for VOXY Agents with authentication and persistence.
 Consolidated and secured - no unauthenticated endpoints.
+
+Supports dual-engine architecture via VOXY_LANGGRAPH_ENABLED feature flag:
+- SDK Engine: OpenAI Agents SDK orchestrator (default, production-ready)
+- LangGraph Engine: LangGraph orchestrator (Phase 2-6 migration, POC/testing)
 """
 
 import hashlib
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -19,6 +24,10 @@ from pydantic import BaseModel
 from ...core.cache.redis_cache import get_redis_cache
 from ...core.database.supabase_integration import SupabaseIntegration
 from ...core.utils.id_generator import generate_unique_request_id
+
+# LangGraph imports (Phase 2-6 migration)
+from ...langgraph.checkpointer import CheckpointerType
+from ...langgraph.orchestrator import get_langgraph_orchestrator
 from ...main import get_voxy_system
 from ..middleware.auth import User, get_current_active_user
 from ..middleware.vision_rate_limiter import get_vision_rate_limiter
@@ -135,19 +144,66 @@ async def chat_with_voxy(
                 "vision_metadata": vision_metadata,
             }
         else:
-            # Process through VOXY system with session (same as no-auth)
-            voxy_system = get_voxy_system()
+            # Check feature flag for LangGraph vs SDK orchestrator
+            use_langgraph = (
+                os.getenv("VOXY_LANGGRAPH_ENABLED", "false").lower() == "true"
+            )
 
             try:
-                response_text, metadata = await voxy_system.chat(
-                    message=request.message,
-                    user_id=current_user.id,
-                    session_id=session_id,
-                    image_url=request.image_url,
-                )
-                agent_type = metadata.get("agent_type", "voxy")
-                vision_metadata = metadata.get("vision_metadata")
-                cached = False
+                if use_langgraph:
+                    # PHASE 2-6: LangGraph orchestrator
+                    logger.bind(event="CHAT_API|ENGINE").info(
+                        "Using LangGraph orchestrator",
+                        session_id=session_id,
+                        user_id=current_user.id,
+                    )
+
+                    langgraph_orchestrator = get_langgraph_orchestrator(
+                        checkpointer_type=CheckpointerType.SQLITE,
+                        db_path="voxy_graph.db",
+                    )
+
+                    result = await langgraph_orchestrator.process_message(
+                        message=request.message,
+                        session_id=session_id,
+                        user_id=current_user.id,
+                        image_url=request.image_url,
+                    )
+
+                    # Adapt LangGraph response to SDK format
+                    response_text = result["content"]
+                    agent_type = result.get("route_taken", "langgraph")
+                    vision_metadata = result.get("vision_analysis")
+                    cached = False
+
+                    # Create metadata dict compatible with SDK format
+                    metadata = {
+                        "agent_type": agent_type,
+                        "vision_metadata": vision_metadata,
+                        "tools_used": [],  # Phase 3+ will populate this
+                        "engine": "langgraph",
+                        "thread_id": result.get("thread_id"),
+                    }
+
+                else:
+                    # DEFAULT: OpenAI Agents SDK orchestrator (production)
+                    logger.bind(event="CHAT_API|ENGINE").info(
+                        "Using SDK orchestrator",
+                        session_id=session_id,
+                        user_id=current_user.id,
+                    )
+
+                    voxy_system = get_voxy_system()
+                    response_text, metadata = await voxy_system.chat(
+                        message=request.message,
+                        user_id=current_user.id,
+                        session_id=session_id,
+                        image_url=request.image_url,
+                    )
+                    agent_type = metadata.get("agent_type", "voxy")
+                    vision_metadata = metadata.get("vision_metadata")
+                    cached = False
+
             except Exception as voxy_error:
                 logger.bind(event="CHAT_API|ERROR").error(
                     "VOXY system error",
@@ -156,12 +212,18 @@ async def chat_with_voxy(
                     user_id=current_user.id,
                     session_id=session_id,
                     has_vision=bool(request.image_url),
+                    engine="langgraph" if use_langgraph else "sdk",
                     exc_info=True,
                 )
                 response_text = f"Desculpe, ocorreu um erro interno: {str(voxy_error)}"
                 agent_type = "error"
                 vision_metadata = None
                 cached = False
+                metadata = {
+                    "agent_type": "error",
+                    "tools_used": [],
+                    "error": str(voxy_error),
+                }
 
             # Cache the response with tools_used
             cache_data = {
