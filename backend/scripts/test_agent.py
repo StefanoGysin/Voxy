@@ -216,15 +216,15 @@ async def test_translator_langgraph(args):
 
 
 async def test_voxy_langgraph(args):
-    """Test VOXY Orchestrator with LangGraph engine (Phase 2 complete graph)."""
+    """Test VOXY Orchestrator with LangGraph engine (Phase 3 complete graph)."""
     from voxy_agents.langgraph.checkpointer import (
         CheckpointerType,
         get_checkpoint_config,
     )
-    from voxy_agents.langgraph.graph_builder import create_phase2_graph
+    from voxy_agents.langgraph.graph_builder import create_phase3_graph
     from voxy_agents.langgraph.graph_state import create_initial_state
 
-    print_header("Testing VOXY ORCHESTRATOR (LangGraph Engine - Phase 2)")
+    print_header("Testing VOXY ORCHESTRATOR (LangGraph Engine - Phase 3)")
 
     # Print input data
     print_colored("📝 Input Data:", Colors.OKCYAN + Colors.BOLD)
@@ -237,15 +237,20 @@ async def test_voxy_langgraph(args):
     print(f"  engine: {Colors.WARNING}langgraph{Colors.ENDC}")
     print()
 
-    # Create Phase 2 complete graph
-    print_colored("🏗️  Building Phase 2 LangGraph...", Colors.OKCYAN)
+    # Create Phase 3 complete graph
+    print_colored("🏗️  Building Phase 3 LangGraph...", Colors.OKCYAN)
     print("  ├─ Entry Router (PATH1 vs PATH2 decision)")
-    print("  ├─ Vision Bypass Stub (PATH1 direct execution)")
-    print("  ├─ Supervisor Stub (PATH2 acknowledgment)")
-    print("  └─ Translator Node (from Phase 1)")
+    print("  ├─ Vision Bypass with actual Vision Agent (PATH1 direct execution)")
+    print("  ├─ Full ReAct Supervisor with 5 subagent tools (PATH2 orchestration)")
+    print("  │  ├─ translate_text (Translator)")
+    print("  │  ├─ calculate (Calculator)")
+    print("  │  ├─ correct_text (Corrector)")
+    print("  │  ├─ get_weather (Weather)")
+    print("  │  └─ analyze_image (Vision)")
+    print("  └─ All 5 subagents: translator, calculator, corrector, weather, vision")
     print()
 
-    graph = create_phase2_graph(checkpointer_type=CheckpointerType.MEMORY)
+    graph = create_phase3_graph(checkpointer_type=CheckpointerType.MEMORY)
 
     print_colored("✅ Graph compiled successfully\n", Colors.OKGREEN)
 
@@ -281,20 +286,11 @@ async def test_voxy_langgraph(args):
 
             times.append(elapsed)
 
-            # Determine route taken (heuristic based on response)
-            if result["messages"]:
-                last_message = result["messages"][-1]
-                content = (
-                    last_message.content
-                    if hasattr(last_message, "content")
-                    else str(last_message)
-                )
-                if "Vision analysis would be performed" in content:
-                    routes_taken.append("PATH1 (vision_bypass)")
-                elif "VOXY Supervisor received your request" in content:
-                    routes_taken.append("PATH2 (supervisor)")
-                else:
-                    routes_taken.append("PATH2 (subagent)")
+            # Determine route taken (heuristic based on response and context)
+            if result.get("context", {}).get("vision_analysis"):
+                routes_taken.append("PATH1 (vision_bypass)")
+            else:
+                routes_taken.append("PATH2 (supervisor)")
 
         # Print benchmark results
         print_header("Benchmark Results")
@@ -356,24 +352,18 @@ async def test_voxy_langgraph(args):
 
     # Determine route taken
     route_taken = "unknown"
-    if result["messages"]:
-        last_message = result["messages"][-1]
-        content = (
-            last_message.content
-            if hasattr(last_message, "content")
-            else str(last_message)
-        )
-        if "Vision analysis would be performed" in content:
-            route_taken = "PATH1 (vision_bypass)"
-        elif "VOXY Supervisor received your request" in content:
-            route_taken = "PATH2 (supervisor)"
-        else:
-            route_taken = "PATH2 (subagent)"
+    if result.get("context", {}).get("vision_analysis"):
+        route_taken = "PATH1 (vision_bypass)"
+        vision_analysis = result["context"]["vision_analysis"]
+    else:
+        route_taken = "PATH2 (supervisor)"
 
     print_colored("🛤️  Routing:", Colors.OKCYAN + Colors.BOLD)
     print(f"  Route taken: {route_taken}")
     if result.get("context", {}).get("vision_analysis"):
-        print("  Vision analysis: Present")
+        print(
+            f"  Vision analysis: Present ({vision_analysis.get('analysis_type', 'unknown')})"
+        )
     print()
 
     print_colored("⏱️  Performance:", Colors.OKCYAN + Colors.BOLD)

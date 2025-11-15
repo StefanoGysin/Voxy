@@ -2,7 +2,7 @@
 Vision Bypass Node - LangGraph Implementation
 
 PATH1 implementation - bypasses orchestrator and goes directly to vision agent.
-This is a stub for Phase 2; full implementation in Phase 3.
+Full implementation in Phase 3 with actual Vision Agent integration.
 
 Reference: VOXY Orchestrator dual-path architecture
 backend/src/voxy_agents/core/voxy_orchestrator.py
@@ -14,14 +14,15 @@ from langchain_core.messages import AIMessage
 from loguru import logger
 
 from ..graph_state import VoxyState, update_context
+from .vision_node import create_vision_node
 
 
 def vision_bypass_node(state: VoxyState) -> dict[str, Any]:
     """
-    Vision bypass node - PATH1 direct execution (stub for Phase 2).
+    Vision bypass node - PATH1 direct execution with actual Vision Agent.
 
-    In Phase 3, this will invoke the actual Vision Agent.
-    For now, returns a placeholder response.
+    Invokes the Vision Agent node directly for image analysis without
+    going through the supervisor orchestrator.
 
     Args:
         state: Current VoxyState with image_url in context
@@ -42,7 +43,7 @@ def vision_bypass_node(state: VoxyState) -> dict[str, Any]:
     image_url = state.get("context", {}).get("image_url")
 
     logger.bind(event="LANGGRAPH|VISION_BYPASS").info(
-        "Vision bypass node executing (Phase 2 stub)",
+        "Vision bypass node executing (Phase 3 - actual Vision Agent)",
         has_image_url=bool(image_url),
     )
 
@@ -58,27 +59,42 @@ def vision_bypass_node(state: VoxyState) -> dict[str, Any]:
 
         return {"messages": [response]}
 
-    # STUB: Phase 2 - return placeholder
-    # Phase 3 will integrate actual VisionAgent.analyze_image()
-    stub_response = AIMessage(
-        content=f"[Phase 2 Stub] Vision analysis would be performed on: {image_url[:100]}..."
-    )
+    # Phase 3: Invoke actual Vision Agent node
+    vision_node = create_vision_node()
+    result = vision_node(state)
 
-    # Store stub analysis in context
-    stub_analysis = {
-        "image_url": image_url,
-        "analysis_type": "stub",
-        "result": "Phase 2 stub - full implementation in Phase 3",
-    }
+    # Extract vision analysis from response
+    if result.get("messages"):
+        last_message = result["messages"][-1]
+        analysis_content = (
+            last_message.content
+            if hasattr(last_message, "content")
+            else str(last_message)
+        )
 
-    logger.bind(event="LANGGRAPH|VISION_BYPASS").info(
-        "Vision bypass stub completed", image_url_length=len(image_url)
-    )
+        # Store analysis metadata in context
+        vision_analysis = {
+            "image_url": image_url,
+            "analysis_type": "direct_bypass",
+            "result": analysis_content,
+        }
 
-    # Update context with vision analysis
-    updated_context = update_context(state, vision_analysis=stub_analysis)
+        logger.bind(event="LANGGRAPH|VISION_BYPASS").info(
+            "Vision bypass completed",
+            image_url_length=len(image_url),
+            analysis_length=len(analysis_content),
+        )
 
-    return {
-        "messages": [stub_response],
-        **updated_context,
-    }
+        # Update context with vision analysis
+        updated_context = update_context(state, vision_analysis=vision_analysis)
+
+        return {
+            "messages": result["messages"],
+            **updated_context,
+        }
+    else:
+        # Fallback if no messages returned
+        logger.bind(event="LANGGRAPH|VISION_BYPASS").warning(
+            "Vision node returned no messages"
+        )
+        return result

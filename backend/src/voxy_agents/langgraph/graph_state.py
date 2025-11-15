@@ -31,6 +31,7 @@ class VoxyState(TypedDict):
             - user_id: Optional[str] - Authenticated user ID
             - tool_invocations: list[dict] - Tool call tracking for observability
             - metadata: dict - Additional runtime metadata
+        remaining_steps: Number of ReAct agent reasoning steps remaining (required by create_react_agent)
 
     Example:
         state = {
@@ -43,7 +44,8 @@ class VoxyState(TypedDict):
                 "user_id": "user-789",
                 "tool_invocations": [],
                 "metadata": {}
-            }
+            },
+            "remaining_steps": 25
         }
     """
 
@@ -54,12 +56,17 @@ class VoxyState(TypedDict):
     # Context channel for additional state (replaced on update, not merged)
     context: dict[str, Any]
 
+    # Remaining steps for ReAct agent (required by create_react_agent)
+    # Default is 25 steps, can be overridden in config
+    remaining_steps: int
+
 
 def create_initial_state(
     messages: list[dict[str, str]] | list[BaseMessage] | None = None,
     thread_id: str | None = None,
     session_id: str | None = None,
     user_id: str | None = None,
+    remaining_steps: int = 25,
 ) -> VoxyState:
     """
     Create initial VoxyState with default context.
@@ -69,6 +76,7 @@ def create_initial_state(
         thread_id: LangGraph thread ID (required for checkpointing)
         session_id: Supabase session ID (optional)
         user_id: Authenticated user ID (optional)
+        remaining_steps: Max ReAct agent reasoning steps (default: 25)
 
     Returns:
         VoxyState with initialized context
@@ -81,6 +89,8 @@ def create_initial_state(
         ... )
         >>> state["context"]["thread_id"]
         'thread-123'
+        >>> state["remaining_steps"]
+        25
     """
     return {
         "messages": messages or [],  # type: ignore[typeddict-item]
@@ -92,6 +102,7 @@ def create_initial_state(
             "tool_invocations": [],
             "metadata": {},
         },
+        "remaining_steps": remaining_steps,
     }
 
 

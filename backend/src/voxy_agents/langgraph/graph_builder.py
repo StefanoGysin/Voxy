@@ -38,63 +38,111 @@ Reference: LangGraph Supervisor Multi-Agent Pattern
 https://langchain-ai.github.io/langgraph/concepts/multi_agent/
 """
 
-from typing import Any
-
-from langchain_core.messages import AIMessage
+from langchain_litellm import ChatLiteLLM
 from langgraph.graph import END, START, StateGraph
+from langgraph.prebuilt import create_react_agent
 from loguru import logger
 
+from ..config.models_config import load_orchestrator_config
 from .checkpointer import CheckpointerType, create_checkpointer
 from .graph_state import VoxyState
+from .nodes.calculator_node import create_calculator_tool
+from .nodes.corrector_node import create_corrector_tool
 from .nodes.entry_router import entry_router
-from .nodes.translator_node import create_translator_node
+from .nodes.translator_node import create_translator_node, create_translator_tool
 from .nodes.vision_bypass import vision_bypass_node
+from .nodes.vision_node import create_vision_tool
+from .nodes.weather_node import create_weather_tool
 
 
-def _create_supervisor_stub_node():
+def _get_supervisor_instructions() -> str:
+    """Get specialized instructions for VOXY supervisor (same as SDK version)."""
+    return """
+    Você é o VOXY, assistente inteligente com capacidades multimodais e acesso a subagentes especializados.
+
+    CAPACIDADES:
+    - Análise e roteamento inteligente de solicitações
+    - Coordenação de 5 subagentes especializados
+    - Processamento multimodal (texto + imagens)
+    - Execução de múltiplas tarefas quando necessário
+
+    SUBAGENTES DISPONÍVEIS:
+    - translate_text: Traduções entre idiomas (preserva contexto e significado)
+    - correct_text: Correção ortográfica e gramatical (preserva significado)
+    - calculate: Cálculos matemáticos com explicações passo a passo
+    - get_weather: Informações meteorológicas em tempo real (OpenWeatherMap)
+    - analyze_image: Análise multimodal de imagens (OCR, objetos, contexto)
+
+    DIRETRIZES:
+    - Analise a solicitação do usuário e escolha o(s) subagente(s) apropriado(s)
+    - Use APENAS os subagentes quando necessário; para conversas simples, responda diretamente
+    - Pode chamar múltiplos subagentes se a tarefa exigir (ex: traduzir e depois corrigir)
+    - Forneça contexto claro ao chamar subagentes
+    - Agregue e formate as respostas dos subagentes de forma clara
+    - Para análise de imagens, use analyze_image com URL da imagem
+    - Seja natural, útil e eficiente
+
+    EXEMPLOS DE ROTEAMENTO:
+    - "Traduza 'Hello' para português" → translate_text
+    - "Corrija: 'Eu foi na loja'" → correct_text
+    - "Quanto é 25 × 4?" → calculate
+    - "Clima em São Paulo" → get_weather
+    - "Qual emoji é este?" (com imagem) → analyze_image
+    - "Olá, como vai?" → Resposta direta (sem subagente)
+    - "Traduza e corrija este texto" → translate_text + correct_text (sequencial)
     """
-    Create stub supervisor node for Phase 2.
 
-    Phase 3 will replace this with create_react_agent() with full tools.
-    For now, returns a simple response acknowledging the request.
+
+def _create_supervisor_react_agent():
+    """
+    Create full ReAct supervisor agent with all 5 subagent tools (Phase 3).
+
+    Replaces Phase 2 stub with create_react_agent() using:
+    - LiteLLM orchestrator model (configurable via .env)
+    - All 5 subagent tools: translator, corrector, calculator, weather, vision
+    - VOXY supervisor instructions
 
     Returns:
-        Supervisor node function
+        Compiled ReAct agent (LangGraph subgraph)
     """
+    # Load orchestrator configuration
+    config = load_orchestrator_config()
 
-    def supervisor_stub_node(state: VoxyState) -> dict[str, Any]:
-        """
-        Supervisor stub node (Phase 2).
+    # Create ChatLiteLLM for supervisor
+    litellm_model = ChatLiteLLM(
+        model=config.get_litellm_model_path(),
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+    )
 
-        In Phase 3, this will be replaced by:
-        - create_react_agent(model, tools=[translator_tool, ...])
-        - Full ReAct loop with tool calling
-        - Multi-agent orchestration
+    # Create all 5 subagent tools
+    tools = [
+        create_translator_tool(),  # Phase 1
+        create_calculator_tool(),  # Phase 3
+        create_corrector_tool(),  # Phase 3
+        create_weather_tool(),  # Phase 3
+        create_vision_tool(),  # Phase 3
+    ]
 
-        Args:
-            state: Current VoxyState
+    logger.bind(event="LANGGRAPH|SUPERVISOR_INIT").info(
+        "Creating ReAct supervisor with all 5 subagent tools",
+        model=config.get_litellm_model_path(),
+        tools_count=len(tools),
+    )
 
-        Returns:
-            State update with stub response
-        """
-        messages = state["messages"]
+    # Create ReAct agent (supervisor)
+    supervisor_agent = create_react_agent(
+        model=litellm_model,
+        tools=tools,
+        state_schema=VoxyState,
+        prompt=_get_supervisor_instructions(),
+    )
 
-        logger.bind(event="LANGGRAPH|SUPERVISOR_STUB").info(
-            "Supervisor stub executing (Phase 2)",
-            message_count=len(messages),
-        )
+    logger.bind(event="LANGGRAPH|SUPERVISOR_INIT").info(
+        "ReAct supervisor created successfully"
+    )
 
-        # STUB: Phase 2 - Simple acknowledgment
-        stub_response = AIMessage(
-            content="[Phase 2 Stub] VOXY Supervisor received your request. "
-            "In Phase 3, I will orchestrate the appropriate subagent (translator, calculator, etc.)."
-        )
-
-        logger.bind(event="LANGGRAPH|SUPERVISOR_STUB").info("Supervisor stub completed")
-
-        return {"messages": [stub_response]}
-
-    return supervisor_stub_node
+    return supervisor_agent
 
 
 class SupervisorGraphBuilder:
@@ -196,26 +244,29 @@ class SupervisorGraphBuilder:
 
         return self
 
-    def add_supervisor_stub(self) -> "SupervisorGraphBuilder":
+    def add_supervisor(self) -> "SupervisorGraphBuilder":
         """
-        Add supervisor stub node (Phase 2 implementation).
+        Add full ReAct supervisor agent (Phase 3 implementation).
 
-        Phase 3 will replace with create_react_agent() with full tools list.
+        Uses create_react_agent() with all 5 subagent tools.
 
         Returns:
             Self for method chaining
         """
-        supervisor_stub = _create_supervisor_stub_node()
-        self.builder.add_node("supervisor", supervisor_stub)
+        supervisor_agent = _create_supervisor_react_agent()
 
-        # For Phase 2 stub, supervisor goes directly to END
-        # Phase 3 will route to subagents via tool calls
+        # Add the supervisor ReAct agent as a node
+        # create_react_agent returns a compiled graph that we add as a subgraph
+        self.builder.add_node("supervisor", supervisor_agent)
+
+        # Supervisor now handles tool calling internally via ReAct loop
+        # It goes to END when done
         self.builder.add_edge("supervisor", END)
 
         self._nodes_added.add("supervisor")
 
         logger.bind(event="LANGGRAPH|GRAPH_BUILDER").info(
-            "Supervisor stub added (Phase 2)"
+            "Full ReAct supervisor added (Phase 3) with 5 subagent tools"
         )
 
         return self
@@ -263,13 +314,36 @@ def create_phase2_graph(
     db_path: str | None = None,
 ):
     """
-    Factory function to create Phase 2 complete graph.
+    Factory function to create Phase 2 graph (DEPRECATED - use create_phase3_graph).
+
+    Kept for backward compatibility with Phase 2 tests.
+    Now delegates to create_phase3_graph() which has full implementation.
+
+    Args:
+        checkpointer_type: Type of checkpointer (memory, sqlite, postgres)
+        db_path: Database path for persistent checkpointers (optional)
+
+    Returns:
+        Compiled graph ready for invocation
+    """
+    logger.bind(event="LANGGRAPH|GRAPH_FACTORY").warning(
+        "create_phase2_graph() is deprecated, use create_phase3_graph()"
+    )
+    return create_phase3_graph(checkpointer_type, db_path)
+
+
+def create_phase3_graph(
+    checkpointer_type: CheckpointerType | str = CheckpointerType.MEMORY,
+    db_path: str | None = None,
+):
+    """
+    Factory function to create Phase 3 complete graph.
 
     Assembles:
     - Entry router (PATH1/PATH2 decision)
-    - Vision bypass stub (PATH1 direct execution)
-    - Supervisor stub (PATH2 acknowledgment)
-    - Translator node (from Phase 1)
+    - Vision bypass with actual Vision Agent (PATH1 direct execution)
+    - Full ReAct supervisor with 5 subagent tools (PATH2 orchestration)
+    - All 5 subagents: translator, calculator, corrector, weather, vision
 
     Args:
         checkpointer_type: Type of checkpointer (memory, sqlite, postgres)
@@ -279,7 +353,7 @@ def create_phase2_graph(
         Compiled graph ready for invocation
 
     Example:
-        >>> graph = create_phase2_graph(CheckpointerType.MEMORY)
+        >>> graph = create_phase3_graph(CheckpointerType.MEMORY)
         >>> state = create_initial_state(
         ...     messages=[{"role": "user", "content": "Translate 'Hello' to French"}],
         ...     thread_id="session-123"
@@ -290,14 +364,13 @@ def create_phase2_graph(
     builder = SupervisorGraphBuilder()
 
     builder.add_entry_router()
-    builder.add_vision_bypass_stub()
-    builder.add_translator_node()
-    builder.add_supervisor_stub()
+    builder.add_vision_bypass_stub()  # Now uses actual Vision Agent (Phase 3)
+    builder.add_supervisor()  # Full ReAct supervisor with 5 tools (Phase 3)
 
     graph = builder.compile(checkpointer_type, db_path)
 
     logger.bind(event="LANGGRAPH|GRAPH_FACTORY").info(
-        "Phase 2 graph created",
+        "Phase 3 graph created with full ReAct supervisor + 5 subagent tools",
         checkpointer_type=checkpointer_type,
     )
 
