@@ -2,9 +2,6 @@
 
 Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados, apresentado através de uma interface **VOXY Web OS** completa.
 
-
-> 📚 Para histórico detalhado de implementações e features, consulte [@HISTORY.md](./HISTORY.md)
-
 ## 🎯 Status: 100% OPERACIONAL
 
 - **5 Subagentes SDK**: Translator, Corrector, Weather, Calculator, Vision (LiteLLM - 400+ modelos configuráveis)
@@ -72,6 +69,55 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 
 **Regra**: pode criar documentação livremente em `.safe-zone/` mas NUNCA em `docs/` sem autorização explícita.
 
+## 📜 Git como Fonte de Verdade do Projeto
+
+**IMPORTANTE - Histórico via Git History**:
+
+Este projeto usa o **git como estrutura de informação** para rastrear toda a evolução do código e features.
+
+**Como Claude Code deve entender o projeto**:
+
+1. **Git History = Documentação Viva**:
+   - Use `git log --oneline --graph` para ver a linha do tempo do projeto
+   - Commits descrevem **o que** foi implementado e **por quê**
+   - Mensagens de commit seguem padrão descritivo e informativo
+
+2. **Branches indicam Contexto de Trabalho**:
+   - `main`: Código estável e testado em produção
+   - `feature/*`: Desenvolvimento de novas funcionalidades
+   - Use `git branch` ou `git status` para saber onde está trabalhando
+
+3. **Commits Informativos em Português**:
+   - **OBRIGATÓRIO**: Todas as mensagens de commit devem ser em **português**
+   - Cada commit deve descrever claramente o trabalho realizado
+   - Exemplo: `feat(langgraph): Implementa Fase 2 - Supervisor Graph & Entry Router`
+   - Formato sugerido: `<type>(<scope>): <descrição em português>`
+   - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+   - Descrição sempre em português para facilitar leitura do histórico
+
+4. **Como Consultar Histórico**:
+   ```bash
+   # Ver commits recentes com contexto
+   git log --oneline --graph -n 20
+
+   # Ver mudanças em um arquivo específico
+   git log --follow -p -- <file_path>
+
+   # Ver trabalho em uma branch específica
+   git log main..feature/nome-da-feature
+
+   # Ver commits por autor ou período
+   git log --author="name" --since="2 weeks ago"
+   ```
+
+5. **Entendendo o Estado Atual**:
+   - `git status`: O que está modificado agora
+   - `git diff`: Mudanças não commitadas
+   - `git diff main`: Diferença da branch atual com main
+   - `git log -1`: Último commit (contexto atual)
+
+**Para Claude Code**: Sempre que precisar entender o histórico de uma feature, mudança arquitetural ou decisão de design, consulte o git history. Os commits contêm o "porquê" e "como" de cada implementação.
+
 ## 🔧 Consultando Configuração de Modelos Atual
 
 **IMPORTANTE**: A documentação usa modelos como **exemplos** (defaults configurados em `.env.example`).
@@ -128,64 +174,15 @@ poetry run python scripts/test_agent.py --interactive
 O VOXY Agents é **100% configurável via variáveis de ambiente**. Não há modelos hardcoded no código.
 Todos os modelos (VOXY Orchestrator + 5 Subagentes) são configurados através do arquivo `.env`.
 
-**Para configurar seu ambiente**:
+**Setup rápido**:
 
-1. **Copie o template**:
-   ```bash
-   cp backend/.env.example backend/.env
-   ```
+1. Copie o template: `cp backend/.env.example backend/.env`
+2. Edite `backend/.env` com suas credenciais
+3. Consulte `backend/.env.example` para ver todas as variáveis disponíveis
 
-2. **Edite `backend/.env`** com suas credenciais e preferências de modelos
+**Principais categorias**: API Keys, Database (Supabase), Cache (Redis), VOXY Orchestrator, Subagentes (5), External APIs.
 
-3. **Consulte `.env.example`** para ver:
-   - Variáveis obrigatórias vs. opcionais
-   - Exemplos de configuração (não são requisitos!)
-   - Comentários sobre cada parâmetro
-   - Sugestões de modelos por caso de uso
-
-**Categorias de Configuração**:
-
-```bash
-# 1. API Keys & Authentication
-OPENROUTER_API_KEY=          # Para 400+ modelos via OpenRouter
-OPENAI_API_KEY=              # Para modelos OpenAI diretos
-ANTHROPIC_API_KEY=           # Para Claude direto
-GOOGLE_API_KEY=              # Para Gemini direto
-
-# 2. Database & Cache
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_KEY=
-SUPABASE_JWT_SECRET=
-REDIS_URL=
-
-# 3. VOXY Orchestrator
-ORCHESTRATOR_PROVIDER=       # openrouter | openai | anthropic | google
-ORCHESTRATOR_MODEL=          # Qualquer modelo suportado pelo provider
-ORCHESTRATOR_MAX_TOKENS=
-ORCHESTRATOR_TEMPERATURE=
-ORCHESTRATOR_REASONING_EFFORT=
-
-# 4. Subagentes (Calculator, Corrector, Translator, Weather, Vision)
-# Cada um configurável independentemente:
-<AGENT>_PROVIDER=            # openrouter | openai | anthropic | google
-<AGENT>_MODEL=               # Qualquer modelo do provider
-<AGENT>_MAX_TOKENS=
-<AGENT>_TEMPERATURE=
-
-# 5. External APIs
-OPENWEATHER_API_KEY=         # Para Weather Agent
-```
-
-**⚠️ Nenhuma Referência Hardcoded**:
-- ❌ Código NÃO contém modelos específicos
-- ✅ Tudo vem do `.env`
-- ✅ Trocar modelos = apenas editar `.env` (zero mudanças de código)
-- ✅ Suporta 400+ modelos via LiteLLM Multi-Provider
-
-**Consulte sempre**:
-- `backend/.env.example` - Template oficial com exemplos comentados
-- [Seção "Consultando Configuração de Modelos Atual"](#🔧-consultando-configuração-de-modelos-atual) acima
+**Princípio Model-Agnostic**: Zero modelos hardcoded no código. Tudo configurável via `.env` - suporta 400+ modelos via LiteLLM Multi-Provider.
 
 ## 📋 Comandos Essenciais
 
@@ -224,108 +221,28 @@ npm run typecheck
 npm run lint
 ```
 
-## 🏛️ Modelos Centralizados (DRY Principle)
-
-**Arquivo**: `backend/src/voxy_agents/api/models.py`
-
-5 modelos compartilhados entre rotas:
-- `MessageResponse` - Mensagem de chat individual
-- `MessagesListResponse` - Lista paginada de mensagens
-- `SearchRequest` - Busca avançada unificada
-- `SearchResultItem` - Item de resultado de busca
-- `SearchResponse` - Resposta de busca com metadata
-
-**Benefícios**: Manutenção simplificada, Type Safety, Prevenção de bugs, Evolução segura
-
-## 🔧 LiteLLM Migration Pattern
-
-**Padrão implementado** (Calculator Agent):
-1. Configuração centralizada em `config/models_config.py`
-2. Factory pattern em `utils/llm_factory.py`
-3. Subagent refatorado para usar LiteLLM Model
-
-**Como migrar outro subagente**:
-1. Adicionar função `load_<subagent>_config()` em `models_config.py`
-2. Refatorar subagent para importar config + factory
-3. Adicionar env vars em `.env.example`
-4. Atualizar testes para mockar `load_config` e `create_litellm_model`
-
 ## 🧪 Sistema de Testes Isolados
 
-**Exemplo CLI (Subagentes)**:
+Script para testar agentes individualmente (18x mais rápido que testes completos):
+
 ```bash
-# Testar tradutor
-poetry run python scripts/test_agent.py translator \
---text "Hello world" \
---target-language "pt-BR"
+# Testar subagente específico
+poetry run python scripts/test_agent.py translator --text "Hello" --target-language "pt-BR"
 
-# Testar Vision Agent
-poetry run python scripts/test_agent.py vision \
---image-url "https://example.com/image.jpg" \
---query "O que você vê?"
-```
-
-**Exemplo CLI (VOXY Orchestrator)**:
-```bash
-# Teste simples
-poetry run python scripts/test_agent.py voxy \
---message "Traduza 'Hello world' para português"
-
-# Com imagem (análise multimodal via Vision Agent)
-poetry run python scripts/test_agent.py voxy \
---message "Qual emoji é este?" \
---image-url "https://example.com/emoji.png"
-
-# Benchmark mode
-poetry run python scripts/test_agent.py voxy \
---message "Quanto é 2+2?" \
---benchmark --iterations 5
+# Testar VOXY Orchestrator
+poetry run python scripts/test_agent.py voxy --message "Traduza 'Hello' para português"
 
 # Modo interativo
 poetry run python scripts/test_agent.py --interactive
-# Digite: voxy
-# message: Traduza "Hello" para francês
 ```
 
-## 📊 API Endpoints Principais
+Use `--help` para ver todas as opções e agentes disponíveis.
 
-**Auth**:
-- `POST /api/auth/login` - Login + Remember Me
-- `POST /api/auth/logout` - Logout + Token blacklisting
-- `GET /api/auth/me` - User info
-- `GET /api/auth/validate` - Token validation
+## 📊 API Endpoints
 
-**Chat**:
-- `POST /api/chat` - Send message (VOXY Orchestrator)
-- `GET /api/sessions` - List sessions
-- `POST /api/sessions` - Create session
-- `GET /api/sessions/{id}/messages` - Get messages
+Principais rotas organizadas em: **Auth**, **Chat**, **Images**, **Testing**.
 
-**Images**:
-- `POST /api/images/upload` - Upload with metadata
-- `GET /api/images/` - List with filters
-- `PUT /api/images/{id}` - Update metadata
-- `DELETE /api/images/{id}` - Delete image
-
-**Testing**:
-- `POST /api/test/subagent` - Test isolated subagent or VOXY Orchestrator
-- `GET /api/test/agents` - List available agents (5 subagentes + voxy)
-- `POST /api/test/batch` - Batch testing (up to 10)
-- `GET /api/test/health` - Health check do sistema de testes
-
-## 🎯 Features Principais
-
-**Orchestrator LiteLLM**: VOXY totalmente configurável (400+ modelos via .env)
-**Multi-Agent System**: 5 subagentes (OpenAI Agents SDK + LiteLLM) + Flow Corrections
-**Token Usage Tracking**: Rastreamento centralizado de tokens + cost estimation via LiteLLM (100% tested)
-**Image Management**: Upload, grid responsivo, modal, busca, metadata editing
-**VOXY Web OS**: Interface desktop com 13 wallpapers + Grid responsivo (6 breakpoints)
-**Professional Drag & Drop**: Smart swapping + collision detection
-**Remember Me**: Auto-login + persistência de credenciais (7 dias)
-**JWT Advanced**: 24h tokens + JTI tracking + Redis blacklisting
-**Isolated Testing**: Sistema completo para testar subagentes individualmente
-**API DRY**: Modelos centralizados em `api/models.py`
-**LiteLLM Support**: 400+ modelos configuráveis via `.env` (Orchestrator + 5 Subagentes)
+Documentação completa disponível em `/docs` (FastAPI Swagger) ou veja `backend/src/voxy_agents/api/routes/`.
 
 ## 📝 Code Style & Workflow
 
@@ -368,7 +285,7 @@ poetry run python scripts/test_agent.py --interactive
 
 ### 🔍 Como Usar Context7 Corretamente
 
-**Exemplo Real - Token Usage Tracking (2025-10-25)**:
+**Exemplo Real - Token Usage Tracking**:
 
 ❌ **ERRADO** (o que NÃO fazer):
 ```python
@@ -437,31 +354,6 @@ if hasattr(result, 'context_wrapper') and result.context_wrapper.usage:  # ✅ C
 
 **Resposta**: 📚 **Abra Context7 e consulte a documentação oficial!**
 
-### 💡 Exemplo Prático de Consulta
-
-**Problema**: Implementar streaming com LiteLLM
-
-**Workflow Correto**:
-```typescript
-// 1. Resolver library ID
-const libraryId = await resolveLibraryId("litellm");
-
-// 2. Consultar docs sobre streaming
-const docs = await getLibraryDocs({
-    libraryId: "/berriai/litellm",
-    topic: "streaming responses token usage",
-    tokens: 6000
-});
-
-// 3. Implementar seguindo padrão oficial descoberto
-const response = completion({
-    model: "gpt-4",
-    messages: [...],
-    stream: true,
-    stream_options: { include_usage: true }  // ✅ Da documentação!
-});
-```
-
 ### ✅ Checklist Antes de Implementar
 
 - [ ] Consultei Context7 para verificar se a funcionalidade existe?
@@ -474,18 +366,3 @@ const response = completion({
 ---
 
 **Resumo**: Context7 é sua **primeira ferramenta**, não a última. Use-o **proativamente** para economizar tempo e implementar soluções corretas desde o início.
-
-## 🔄 Summary Instructions
-
-Quando usar auto-compact, foque em:
-- Test output e código alterado
-- Erros e warnings relevantes
-- Decisões arquiteturais importantes
-- Mudanças em modelos de dados
-- Performance metrics críticos
-
----
-
-**Sistema multi-agente enterprise-ready com VOXY Orchestrator (LiteLLM Multi-Provider) + 5 Subagentes SDK (OpenAI Agents + LiteLLM configuráveis) + Token Usage Tracking Centralizado + VOXY Web OS + Image Management System + API Architecture DRY-compliant + Pre-commit Quality Hooks + Documentation-First Approach completamente implementado e 100% operacional.**
-
-*Última atualização: 2025-10-25 - Token Usage Tracking System + Documentation-First Approach via Context7*
