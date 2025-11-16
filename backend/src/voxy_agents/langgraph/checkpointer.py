@@ -84,6 +84,8 @@ def create_checkpointer(
             "Creating SqliteSaver checkpointer", db_path=db_path
         )
         try:
+            import sqlite3
+
             from langgraph.checkpoint.sqlite import SqliteSaver
         except ImportError as e:
             raise ImportError(
@@ -91,8 +93,17 @@ def create_checkpointer(
                 "Run: poetry add langgraph-checkpoint-sqlite"
             ) from e
 
-        # SqliteSaver.from_conn_string handles SQLite connection management
-        return SqliteSaver.from_conn_string(db_path)  # type: ignore[return-value]
+        # Phase 4E Fix: Create connection manually and pass to SqliteSaver
+        # This avoids context manager issues and keeps connection open
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        checkpointer = SqliteSaver(conn)
+
+        logger.bind(event="CHECKPOINTER|SETUP").debug(
+            "Initializing SQLite checkpointer schema"
+        )
+        checkpointer.setup()
+
+        return checkpointer
 
     elif checkpointer_type == CheckpointerType.POSTGRES:
         if not db_path:

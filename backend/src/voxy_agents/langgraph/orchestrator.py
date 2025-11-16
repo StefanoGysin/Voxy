@@ -112,6 +112,7 @@ class LangGraphOrchestrator:
         Process user message through LangGraph orchestration.
 
         Phase 4A: Now includes token usage tracking and cost estimation.
+        Phase 4E: Loads existing checkpoint to enable conversation history.
 
         Args:
             message: User message text
@@ -146,26 +147,88 @@ class LangGraphOrchestrator:
         # Generate thread_id from session_id or create new UUID
         thread_id = session_id or f"thread-{uuid4()}"
 
-        # Create initial state
-        initial_context = context or {}
-        if image_url:
-            initial_context["image_url"] = image_url
+        # Phase 4E: Load existing checkpoint or create new state
+        # This enables conversation history by preserving messages across invocations
+        config = get_checkpoint_config(thread_id=thread_id)
 
-        state = create_initial_state(
-            messages=[HumanMessage(content=message)],  # type: ignore[arg-type]
-            thread_id=thread_id,
-            session_id=session_id,
-            user_id=user_id,
-        )
+        try:
+            # Try to load existing checkpoint for this thread
+            # get_state() returns a StateSnapshot with .values containing the state
+            snapshot = self.graph.get_state(config)
 
-        # Merge context
-        state["context"].update(initial_context)
+            if snapshot and snapshot.values and snapshot.values.get("messages"):
+                # Checkpoint exists - append new message to history
+                logger.bind(
+                    event="LANGGRAPH|ORCHESTRATOR_CHECKPOINT_LOADED", trace_id=trace_id
+                ).info(
+                    "Loading existing checkpoint",
+                    thread_id=thread_id,
+                    existing_messages=len(snapshot.values["messages"]),
+                )
+
+                # Use existing state and append new message
+                state = dict(snapshot.values)  # Create mutable copy
+                state["messages"].append(HumanMessage(content=message))  # type: ignore[arg-type]
+
+                # Update context with new data if provided
+                initial_context = context or {}
+                if image_url:
+                    initial_context["image_url"] = image_url
+                if initial_context:
+                    state["context"].update(initial_context)
+            else:
+                # No checkpoint - create initial state (first message in conversation)
+                logger.bind(
+                    event="LANGGRAPH|ORCHESTRATOR_NEW_CONVERSATION", trace_id=trace_id
+                ).info(
+                    "Creating new conversation",
+                    thread_id=thread_id,
+                )
+
+                initial_context = context or {}
+                if image_url:
+                    initial_context["image_url"] = image_url
+
+                initial_state = create_initial_state(
+                    messages=[HumanMessage(content=message)],  # type: ignore[arg-type]
+                    thread_id=thread_id,
+                    session_id=session_id,
+                    user_id=user_id,
+                )
+
+                # Convert to mutable dict for consistency
+                state = dict(initial_state)
+                # Merge context
+                state["context"].update(initial_context)
+        except Exception as e:
+            # Fallback to creating new state if checkpoint loading fails
+            logger.bind(
+                event="LANGGRAPH|ORCHESTRATOR_CHECKPOINT_ERROR", trace_id=trace_id
+            ).warning(
+                f"Failed to load checkpoint, creating new state: {e}",
+                thread_id=thread_id,
+            )
+
+            initial_context = context or {}
+            if image_url:
+                initial_context["image_url"] = image_url
+
+            initial_state = create_initial_state(
+                messages=[HumanMessage(content=message)],  # type: ignore[arg-type]
+                thread_id=thread_id,
+                session_id=session_id,
+                user_id=user_id,
+            )
+
+            # Convert to mutable dict for consistency
+            state = dict(initial_state)
+            # Merge context
+            state["context"].update(initial_context)
 
         # Phase 4A: Create usage callback handler
         usage_handler = UsageCallbackHandler()
 
-        # Create checkpoint config with callbacks
-        config = get_checkpoint_config(thread_id=thread_id)
+        # Add callbacks and metadata to existing config
         config["callbacks"] = [usage_handler]
         config["metadata"] = {"trace_id": trace_id}
 
