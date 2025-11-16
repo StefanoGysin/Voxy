@@ -28,14 +28,17 @@ class CheckpointerType(str, Enum):
 
 
 def create_checkpointer(
-    checkpointer_type: CheckpointerType | str = CheckpointerType.MEMORY,
+    checkpointer_type: CheckpointerType | str = CheckpointerType.SQLITE,
     db_path: str | None = None,
 ) -> "BaseCheckpointSaver[Any]":
     """
     Factory function to create LangGraph checkpointers.
 
+    Phase 4C: Default changed from MEMORY to SQLITE for persistent checkpoints.
+
     Args:
         checkpointer_type: Type of checkpointer (memory, sqlite, postgres)
+                           Default: SQLITE (Phase 4C)
         db_path: Database path for persistent checkpointers (SQLite/Postgres)
                  Default: "voxy_graph.db" for SQLite
 
@@ -47,10 +50,13 @@ def create_checkpointer(
         ImportError: If required checkpoint package is not installed
 
     Examples:
-        >>> # POC/Testing - In-memory checkpointer
+        >>> # Phase 4C Default - SQLite checkpointer (persistent)
+        >>> checkpointer = create_checkpointer()  # Uses SQLite by default
+
+        >>> # Development/Testing - In-memory checkpointer (non-persistent)
         >>> checkpointer = create_checkpointer(CheckpointerType.MEMORY)
 
-        >>> # Development - SQLite checkpointer
+        >>> # Custom SQLite path
         >>> checkpointer = create_checkpointer(
         ...     CheckpointerType.SQLITE,
         ...     db_path="checkpoints.db"

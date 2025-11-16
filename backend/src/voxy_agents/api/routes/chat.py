@@ -176,14 +176,39 @@ async def chat_with_voxy(
                     vision_metadata = result.get("vision_analysis")
                     cached = False
 
+                    # Phase 4A: Extract usage metrics from result
+                    usage = result.get("usage")
+                    tools_used = []
+
                     # Create metadata dict compatible with SDK format
                     metadata = {
                         "agent_type": agent_type,
                         "vision_metadata": vision_metadata,
-                        "tools_used": [],  # Phase 3+ will populate this
+                        "tools_used": tools_used,  # Will be populated from usage extraction
                         "engine": "langgraph",
                         "thread_id": result.get("thread_id"),
+                        "trace_id": result.get("trace_id"),  # Phase 4A
                     }
+
+                    # Phase 4A: Add usage metrics to metadata if available
+                    if usage:
+                        metadata["usage"] = {
+                            "requests": usage.requests,
+                            "input_tokens": usage.input_tokens,
+                            "output_tokens": usage.output_tokens,
+                            "total_tokens": usage.total_tokens,
+                            "estimated_cost_usd": usage.estimated_cost_usd,
+                        }
+
+                        logger.bind(
+                            event="CHAT_API|USAGE_TRACKED",
+                            trace_id=result.get("trace_id"),
+                        ).info(
+                            f"LangGraph usage: {usage.total_tokens} tokens, "
+                            f"${usage.estimated_cost_usd:.6f}"
+                            if usage.estimated_cost_usd
+                            else f"LangGraph usage: {usage.total_tokens} tokens"
+                        )
 
                 else:
                     # DEFAULT: OpenAI Agents SDK orchestrator (production)

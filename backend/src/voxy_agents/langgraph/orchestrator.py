@@ -34,9 +34,17 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage
 from loguru import logger
 
+from voxy_agents.utils.usage_tracker import log_usage_metrics
+
 from .checkpointer import CheckpointerType, get_checkpoint_config
 from .graph_builder import create_phase2_graph
 from .graph_state import VoxyState, create_initial_state
+from .usage_callback import UsageCallbackHandler
+from .usage_extractor import (
+    aggregate_costs_by_model,
+    extract_tool_invocations,
+    extract_usage_from_state,
+)
 
 
 class LangGraphOrchestrator:
@@ -103,6 +111,8 @@ class LangGraphOrchestrator:
         """
         Process user message through LangGraph orchestration.
 
+        Phase 4A: Now includes token usage tracking and cost estimation.
+
         Args:
             message: User message text
             session_id: Supabase session ID (maps to thread_id)
@@ -117,6 +127,7 @@ class LangGraphOrchestrator:
                 - thread_id: LangGraph thread ID
                 - route_taken: "vision_bypass" or "supervisor"
                 - vision_analysis: Optional vision analysis result (PATH1)
+                - usage: Token usage metrics (Phase 4A)
 
         Example:
             >>> response = await orchestrator.process_message(
@@ -126,7 +137,12 @@ class LangGraphOrchestrator:
             ... )
             >>> response["route_taken"]
             'vision_bypass'
+            >>> response["usage"]["total_tokens"]
+            450
         """
+        # Generate trace ID for observability (Phase 4A)
+        trace_id = str(uuid4())[:8]
+
         # Generate thread_id from session_id or create new UUID
         thread_id = session_id or f"thread-{uuid4()}"
 
@@ -145,10 +161,15 @@ class LangGraphOrchestrator:
         # Merge context
         state["context"].update(initial_context)
 
-        # Create checkpoint config
-        config = get_checkpoint_config(thread_id=thread_id)
+        # Phase 4A: Create usage callback handler
+        usage_handler = UsageCallbackHandler()
 
-        logger.bind(event="LANGGRAPH|ORCHESTRATOR_INVOKE").info(
+        # Create checkpoint config with callbacks
+        config = get_checkpoint_config(thread_id=thread_id)
+        config["callbacks"] = [usage_handler]
+        config["metadata"] = {"trace_id": trace_id}
+
+        logger.bind(event="LANGGRAPH|ORCHESTRATOR_INVOKE", trace_id=trace_id).info(
             "Processing message",
             thread_id=thread_id,
             session_id=session_id,
@@ -173,12 +194,46 @@ class LangGraphOrchestrator:
         # Extract vision analysis if present (PATH1)
         vision_analysis = result.get("context", {}).get("vision_analysis")
 
-        logger.bind(event="LANGGRAPH|ORCHESTRATOR_COMPLETE").info(
+        # Phase 4A: Extract usage metrics
+        usage = extract_usage_from_state(result, usage_handler)
+
+        # Phase 4B: Extract tool invocations for hierarchical logging
+        subagents = extract_tool_invocations(result, usage_handler)
+
+        # Phase 4D: Calculate multi-model cost
+        total_cost = aggregate_costs_by_model(result, usage_handler)
+        if usage and total_cost is not None:
+            usage.estimated_cost_usd = total_cost
+
+        # Phase 4A: Log usage metrics (maintains SDK parity)
+        if usage:
+            # Determine path for logging (PATH_1 or PATH_2)
+            path = "PATH_1" if vision_analysis else "PATH_2"
+
+            # Log usage with hierarchical subagent details
+            log_usage_metrics(
+                trace_id=trace_id,
+                path=path,
+                voxy_usage=usage,
+                vision_usage=None,  # Vision usage would be tracked separately in PATH_1
+                subagents_called=subagents,
+            )
+
+            logger.bind(event="LANGGRAPH|USAGE_TRACKED", trace_id=trace_id).info(
+                f"Usage tracked: {usage.total_tokens} tokens, "
+                f"${usage.estimated_cost_usd:.6f} cost, "
+                f"{len(subagents)} subagents"
+                if usage.estimated_cost_usd
+                else f"Usage tracked: {usage.total_tokens} tokens, {len(subagents)} subagents"
+            )
+
+        logger.bind(event="LANGGRAPH|ORCHESTRATOR_COMPLETE", trace_id=trace_id).info(
             "Message processed successfully",
             thread_id=thread_id,
             route_taken=route_taken,
             has_vision_analysis=bool(vision_analysis),
             response_length=len(response_content),
+            total_tokens=usage.total_tokens if usage else 0,
         )
 
         return {
@@ -187,6 +242,8 @@ class LangGraphOrchestrator:
             "thread_id": thread_id,
             "route_taken": route_taken,
             "vision_analysis": vision_analysis,
+            "usage": usage,  # Phase 4A: Include usage in response
+            "trace_id": trace_id,  # Phase 4A: Include trace_id for debugging
         }
 
     def _determine_route_taken(self, result: VoxyState) -> str:
