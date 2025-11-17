@@ -13,12 +13,11 @@ Architecture:
 Reference: backend/src/voxy_agents/core/subagents/calculator_agent.py (SDK version)
 """
 
-from typing import Annotated, Any, Callable
+from typing import Any, Callable
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
-from langgraph.prebuilt import InjectedState
 from loguru import logger
 
 from ...config.models_config import load_calculator_config
@@ -175,16 +174,12 @@ def create_calculator_tool():
     )
 
     @tool
-    def calculate(
-        expression: str,
-        state: Annotated[VoxyState, InjectedState] | None = None,
-    ) -> str:
+    def calculate(expression: str) -> str:
         """
         Perform mathematical calculations with step-by-step explanations.
 
         Args:
             expression: Mathematical expression to calculate (e.g., "2+2", "sqrt(144)", "25 * 4 + 10")
-            state: Injected VoxyState (for context access)
 
         Returns:
             Calculation result with explanation

@@ -13,12 +13,11 @@ Architecture:
 Reference: backend/src/voxy_agents/core/subagents/corrector_agent.py (SDK version)
 """
 
-from typing import Annotated, Any, Callable
+from typing import Any, Callable
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
-from langgraph.prebuilt import InjectedState
 from loguru import logger
 
 from ...config.models_config import load_corrector_config
@@ -173,16 +172,12 @@ def create_corrector_tool():
     )
 
     @tool
-    def correct_text(
-        text: str,
-        state: Annotated[VoxyState, InjectedState] | None = None,
-    ) -> str:
+    def correct_text(text: str) -> str:
         """
         Correct spelling and grammar errors in text while preserving meaning.
 
         Args:
             text: Text to correct
-            state: Injected VoxyState (for context access)
 
         Returns:
             Corrected text

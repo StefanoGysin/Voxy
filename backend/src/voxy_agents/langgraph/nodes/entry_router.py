@@ -11,7 +11,6 @@ Reference: VOXY Orchestrator dual-path architecture
 backend/src/voxy_agents/core/voxy_orchestrator.py
 """
 
-import re
 from typing import Literal
 
 from langchain_core.messages import HumanMessage
@@ -25,8 +24,11 @@ def detect_vision_bypass(message: str, image_url: str | None) -> bool:
     Detect if message should bypass orchestrator and go directly to vision agent.
 
     PATH1 Criteria (bypass):
-    - image_url is provided
-    - Message contains vision-related keywords
+    - image_url is provided (primary condition)
+    - If image_url present, ALWAYS route to vision (user sent image = wants vision analysis)
+
+    Legacy behavior (optional):
+    - Can optionally check for vision-related keywords for additional validation
 
     Args:
         message: User message text
@@ -42,43 +44,21 @@ def detect_vision_bypass(message: str, image_url: str | None) -> bool:
         >>> detect_vision_bypass("Translate hello", None)
         False
 
-        >>> detect_vision_bypass("Analyze this image", "https://example.com/img.jpg")
+        >>> detect_vision_bypass("que cor e o cabelo?", "https://example.com/img.jpg")
         True
     """
     if not image_url:
         return False
 
-    # Vision-related keywords (case-insensitive)
-    vision_keywords = [
-        r"\bimage\b",
-        r"\bphoto\b",
-        r"\bpicture\b",
-        r"\banalyze\b",
-        r"\banalise\b",
-        r"\bdescribe\b",
-        r"\bdescreva\b",
-        r"\bwhat.*see\b",
-        r"\bwhat.*this\b",
-        r"\bwhat.*in\b",
-        r"\bidentify\b",
-        r"\bidentifique\b",
-        r"\bocr\b",
-        r"\bread.*text\b",
-        r"\bemoji\b",
-    ]
-
-    message_lower = message.lower()
-
-    for keyword_pattern in vision_keywords:
-        if re.search(keyword_pattern, message_lower):
-            logger.bind(event="LANGGRAPH|ENTRY_ROUTER").info(
-                "Vision bypass detected",
-                keyword_matched=keyword_pattern,
-                has_image_url=bool(image_url),
-            )
-            return True
-
-    return False
+    # SIMPLIFIED LOGIC: If image_url is present, ALWAYS route to vision
+    # Rationale: User sent an image = wants vision analysis
+    # This avoids missing vision requests due to keyword limitations
+    logger.bind(event="LANGGRAPH|ENTRY_ROUTER").info(
+        "Vision bypass detected (image_url present)",
+        has_image_url=True,
+        message_preview=message[:50] if len(message) > 50 else message,
+    )
+    return True
 
 
 def entry_router(state: VoxyState) -> Literal["vision_bypass", "supervisor"]:

@@ -15,13 +15,12 @@ Reference: backend/src/voxy_agents/core/subagents/weather_agent.py (SDK version)
 """
 
 import os
-from typing import Annotated, Any, Callable
+from typing import Any, Callable
 
 import httpx
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
-from langgraph.prebuilt import InjectedState
 from loguru import logger
 
 from ...config.models_config import load_weather_config
@@ -210,18 +209,13 @@ def create_weather_tool():
     """
 
     @tool
-    def get_weather(
-        city: str,
-        country: str = "BR",
-        state: Annotated[VoxyState, InjectedState] | None = None,
-    ) -> str:
+    def get_weather(city: str, country: str = "BR") -> str:
         """
         Get current weather information for a city using real-time data from OpenWeatherMap API.
 
         Args:
             city: Name of the city (e.g., "São Paulo", "Rio de Janeiro", "New York")
             country: Country code (default: "BR" for Brazil, use "US" for USA, etc.)
-            state: Injected VoxyState (for context access)
 
         Returns:
             Formatted weather information with temperature, conditions, humidity, and wind

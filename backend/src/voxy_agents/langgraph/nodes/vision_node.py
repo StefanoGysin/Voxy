@@ -14,12 +14,11 @@ Architecture:
 Reference: backend/src/voxy_agents/core/subagents/vision_agent.py (SDK version)
 """
 
-from typing import Annotated, Any, Callable
+from typing import Any, Callable
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
-from langgraph.prebuilt import InjectedState
 from loguru import logger
 
 from ...config.models_config import load_vision_config
@@ -219,7 +218,6 @@ def create_vision_tool():
     def analyze_image(
         image_url: str,
         query: str = "Analyze this image",
-        state: Annotated[VoxyState, InjectedState] | None = None,
     ) -> str:
         """
         Analyze an image using multimodal vision AI with detailed descriptions.
@@ -227,7 +225,6 @@ def create_vision_tool():
         Args:
             image_url: URL of the image to analyze (https://... or data URI)
             query: Question or instruction about the image (e.g., "What objects are in this image?", "Extract text from this image")
-            state: Injected VoxyState (for context access)
 
         Returns:
             Detailed analysis of the image based on the query

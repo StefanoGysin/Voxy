@@ -14,12 +14,11 @@ Reference: LangGraph Tool-Calling Supervisor pattern
 https://langchain-ai.github.io/langgraph/concepts/multi_agent/
 """
 
-from typing import Annotated, Any, Callable
+from typing import Any, Callable
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
-from langgraph.prebuilt import InjectedState
 from loguru import logger
 
 from ...config.models_config import load_translator_config
@@ -173,7 +172,6 @@ def create_translator_tool():
         text: str,
         target_language: str,
         source_language: str | None = None,
-        state: Annotated[VoxyState, InjectedState] | None = None,
     ) -> str:
         """
         Translate text between languages using native model capabilities.
@@ -182,7 +180,6 @@ def create_translator_tool():
             text: Text to translate
             target_language: Target language (e.g., "Portuguese", "French", "Spanish")
             source_language: Source language (optional, auto-detected if not provided)
-            state: Injected VoxyState (for context access)
 
         Returns:
             Translated text

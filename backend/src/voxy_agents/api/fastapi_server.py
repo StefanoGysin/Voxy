@@ -6,6 +6,7 @@ Implements Progressive Disclosure Interface from CREATIVE MODE decisions.
 """
 
 import json
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
@@ -348,27 +349,75 @@ async def websocket_endpoint(
                     f"🔍 FastAPI WebSocket DEBUG - message='{message_data['message']}', image_url='{image_url}'"
                 )
 
-                # Process through VOXY system with session management and Vision Agent support
-                voxy_system = get_voxy_system()
-                response, metadata = await voxy_system.chat(
-                    message=message_data["message"],
-                    user_id=user_id,
-                    session_id=session_id,
-                    image_url=image_url,  # Pass image URL to VOXY Orchestrator
+                # Check feature flag for LangGraph vs SDK orchestrator
+                use_langgraph = (
+                    os.getenv("VOXY_LANGGRAPH_ENABLED", "false").lower() == "true"
                 )
+
+                if use_langgraph:
+                    # LangGraph orchestrator (Phase 2-6 migration)
+                    from ..langgraph.checkpointer import CheckpointerType
+                    from ..langgraph.orchestrator import get_langgraph_orchestrator
+
+                    logger.bind(event="WEBSOCKET|ENGINE").info(
+                        "🎯 WebSocket using LangGraph orchestrator",
+                        session_id=session_id,
+                        user_id=user_id,
+                    )
+
+                    langgraph_orch = get_langgraph_orchestrator(
+                        checkpointer_type=CheckpointerType.SQLITE,
+                        db_path="voxy_graph.db",
+                    )
+
+                    result = await langgraph_orch.process_message(
+                        message=message_data["message"],
+                        session_id=session_id,
+                        user_id=user_id,
+                        image_url=image_url,
+                    )
+
+                    response = result["content"]
+                    metadata = {
+                        "engine": "langgraph",
+                        "route_taken": result.get("route_taken"),
+                        "thread_id": result.get("thread_id"),
+                        "trace_id": result.get("trace_id"),
+                        "usage": result.get("usage"),
+                    }
+
+                else:
+                    # OpenAI Agents SDK orchestrator (default/legacy)
+                    logger.bind(event="WEBSOCKET|ENGINE").info(
+                        "🎯 WebSocket using SDK orchestrator",
+                        session_id=session_id,
+                        user_id=user_id,
+                    )
+
+                    voxy_system = get_voxy_system()
+                    response, metadata = await voxy_system.chat(
+                        message=message_data["message"],
+                        user_id=user_id,
+                        session_id=session_id,
+                        image_url=image_url,
+                    )
 
                 processing_time = (datetime.now() - start_time).total_seconds()
 
-                # Send response with session_id for frontend tracking
+                # Send response with session_id and metadata for frontend tracking
                 await manager.send_message(
                     user_id,
                     {
                         "type": "response",
                         "message": response,
                         "user_input": message_data["message"],
-                        "session_id": session_id,  # Include session_id in response
+                        "session_id": session_id,
                         "processing_time": processing_time,
                         "timestamp": datetime.now().isoformat(),
+                        "metadata": {
+                            "engine": metadata.get("engine", "sdk"),
+                            "route_taken": metadata.get("route_taken"),
+                        },
                     },
                 )
 
