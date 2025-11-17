@@ -74,26 +74,6 @@ class Settings:
         self.vision_primary_model = os.getenv("VISION_PRIMARY_MODEL")
         self.vision_fallback_model = os.getenv("VISION_FALLBACK_MODEL")
 
-        # Vision Agent Rate Limiting
-        self.vision_rate_limit_per_minute = int(
-            os.getenv("VISION_RATE_LIMIT_PER_MINUTE", "10")
-        )
-        self.vision_rate_limit_per_hour = int(
-            os.getenv("VISION_RATE_LIMIT_PER_HOUR", "50")
-        )
-        self.vision_monthly_quota = int(os.getenv("VISION_MONTHLY_QUOTA", "1000"))
-
-        # Vision Agent Cost Control
-        self.vision_max_cost_per_analysis = float(
-            os.getenv("VISION_MAX_COST_PER_ANALYSIS", "0.10")
-        )
-        self.vision_daily_budget_limit = float(
-            os.getenv("VISION_DAILY_BUDGET_LIMIT", "50.00")
-        )
-        self.vision_monthly_budget_limit = float(
-            os.getenv("VISION_MONTHLY_BUDGET_LIMIT", "500.00")
-        )
-
         # Vision Flow Corrections Feature Flag
         # Set to "false" to disable post-processing and revert to legacy flow
         self.enable_vision_postprocessing = (
@@ -147,12 +127,6 @@ def load_model_config() -> dict[str, Any]:
                 "cost_per_input_token": 0.00001,  # $0.01 per 1K tokens (example pricing)
                 "cost_per_output_token": 0.00003,  # $0.03 per 1K tokens (example pricing)
                 "cost_per_image": 0.02,  # $0.02 per image analysis
-                "rate_limit_per_minute": settings.vision_rate_limit_per_minute,
-                "rate_limit_per_hour": settings.vision_rate_limit_per_hour,
-                "monthly_quota": settings.vision_monthly_quota,
-                "max_cost_per_analysis": settings.vision_max_cost_per_analysis,
-                "daily_budget_limit": settings.vision_daily_budget_limit,
-                "monthly_budget_limit": settings.vision_monthly_budget_limit,
             },
             "vision_fallback": {
                 "name": settings.vision_fallback_model,

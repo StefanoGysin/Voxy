@@ -365,9 +365,11 @@ async def websocket_endpoint(
                         user_id=user_id,
                     )
 
+                    # Model-Agnostic: Read db_path from environment variable
+                    db_path = os.getenv("LANGGRAPH_DB_PATH", "data/voxy_langgraph.db")
                     langgraph_orch = get_langgraph_orchestrator(
                         checkpointer_type=CheckpointerType.SQLITE,
-                        db_path="voxy_graph.db",
+                        db_path=db_path,
                     )
 
                     result = await langgraph_orch.process_message(
@@ -378,6 +380,15 @@ async def websocket_endpoint(
                     )
 
                     response = result["content"]
+
+                    # CRITICAL DEBUG: Log response details (INFO level to always show)
+                    logger.bind(event="WEBSOCKET|RESPONSE_DEBUG").info(
+                        f"🔍 LangGraph response extracted: "
+                        f"type={type(response).__name__}, "
+                        f"length={len(response) if response else 0}, "
+                        f"preview={response[:200] if response else 'EMPTY'}..."
+                    )
+
                     metadata = {
                         "engine": "langgraph",
                         "route_taken": result.get("route_taken"),
@@ -404,21 +415,36 @@ async def websocket_endpoint(
 
                 processing_time = (datetime.now() - start_time).total_seconds()
 
-                # Send response with session_id and metadata for frontend tracking
-                await manager.send_message(
-                    user_id,
-                    {
-                        "type": "response",
-                        "message": response,
-                        "user_input": message_data["message"],
-                        "session_id": session_id,
-                        "processing_time": processing_time,
-                        "timestamp": datetime.now().isoformat(),
-                        "metadata": {
-                            "engine": metadata.get("engine", "sdk"),
-                            "route_taken": metadata.get("route_taken"),
-                        },
+                # Prepare WebSocket message
+                ws_message = {
+                    "type": "response",
+                    "message": response,
+                    "user_input": message_data["message"],
+                    "session_id": session_id,
+                    "processing_time": processing_time,
+                    "timestamp": datetime.now().isoformat(),
+                    "metadata": {
+                        "engine": metadata.get("engine", "sdk"),
+                        "route_taken": metadata.get("route_taken"),
                     },
+                }
+
+                # CRITICAL DEBUG: Log message being sent (INFO level to always show)
+                logger.bind(event="WEBSOCKET|SEND_DEBUG").info(
+                    f"📤 Sending WebSocket: "
+                    f"user={user_id}, "
+                    f"type={ws_message['type']}, "
+                    f"msg_length={len(ws_message['message']) if ws_message['message'] else 0}, "
+                    f"preview={ws_message['message'][:200] if ws_message['message'] else 'EMPTY'}..."
+                )
+
+                # Send response with session_id and metadata for frontend tracking
+                await manager.send_message(user_id, ws_message)
+
+                logger.bind(event="WEBSOCKET|SEND_COMPLETE").info(
+                    f"✅ WebSocket message sent: {len(ws_message['message']) if ws_message['message'] else 0} chars",
+                    user_id=user_id,
+                    processing_time=processing_time,
                 )
 
             except Exception as e:

@@ -66,6 +66,7 @@ def create_initial_state(
     thread_id: str | None = None,
     session_id: str | None = None,
     user_id: str | None = None,
+    image_url: str | None = None,
     remaining_steps: int = 25,
 ) -> VoxyState:
     """
@@ -76,6 +77,7 @@ def create_initial_state(
         thread_id: LangGraph thread ID (required for checkpointing)
         session_id: Supabase session ID (optional)
         user_id: Authenticated user ID (optional)
+        image_url: Image URL for vision analysis (optional, triggers PATH1 if present)
         remaining_steps: Max ReAct agent reasoning steps (default: 25)
 
     Returns:
@@ -92,16 +94,22 @@ def create_initial_state(
         >>> state["remaining_steps"]
         25
     """
+    context: dict[str, Any] = {
+        "thread_id": thread_id,
+        "session_id": session_id,
+        "user_id": user_id,
+        "vision_analysis": None,
+        "tool_invocations": [],
+        "metadata": {},
+    }
+
+    # Add image_url to context if provided (PATH1 trigger)
+    if image_url:
+        context["image_url"] = image_url
+
     return {
         "messages": messages or [],  # type: ignore[typeddict-item]
-        "context": {
-            "thread_id": thread_id,
-            "session_id": session_id,
-            "user_id": user_id,
-            "vision_analysis": None,
-            "tool_invocations": [],
-            "metadata": {},
-        },
+        "context": context,
         "remaining_steps": remaining_steps,
     }
 

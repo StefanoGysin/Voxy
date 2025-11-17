@@ -10,6 +10,7 @@ Reference: LangGraph Persistence documentation
 https://langchain-ai.github.io/langgraph/concepts/persistence/
 """
 
+import os
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -40,7 +41,7 @@ def create_checkpointer(
         checkpointer_type: Type of checkpointer (memory, sqlite, postgres)
                            Default: SQLITE (Phase 4C)
         db_path: Database path for persistent checkpointers (SQLite/Postgres)
-                 Default: "voxy_graph.db" for SQLite
+                 Default: from LANGGRAPH_DB_PATH env var or "data/voxy_langgraph.db"
 
     Returns:
         BaseCheckpointSaver instance
@@ -49,9 +50,13 @@ def create_checkpointer(
         ValueError: If checkpointer_type is invalid
         ImportError: If required checkpoint package is not installed
 
+    Environment Variables:
+        LANGGRAPH_DB_PATH: Path to SQLite database file (relative to backend/)
+                          Default: "data/voxy_langgraph.db"
+
     Examples:
         >>> # Phase 4C Default - SQLite checkpointer (persistent)
-        >>> checkpointer = create_checkpointer()  # Uses SQLite by default
+        >>> checkpointer = create_checkpointer()  # Uses env var or default path
 
         >>> # Development/Testing - In-memory checkpointer (non-persistent)
         >>> checkpointer = create_checkpointer(CheckpointerType.MEMORY)
@@ -59,7 +64,7 @@ def create_checkpointer(
         >>> # Custom SQLite path
         >>> checkpointer = create_checkpointer(
         ...     CheckpointerType.SQLITE,
-        ...     db_path="checkpoints.db"
+        ...     db_path="custom/path/checkpoints.db"
         ... )
 
         >>> # Production - PostgreSQL (future)
@@ -79,9 +84,14 @@ def create_checkpointer(
         return InMemorySaver()
 
     elif checkpointer_type == CheckpointerType.SQLITE:
-        db_path = db_path or "voxy_graph.db"
+        # Model-Agnostic: Read from environment variable or use default
+        resolved_db_path: str = (
+            db_path
+            if db_path
+            else os.getenv("LANGGRAPH_DB_PATH", "data/voxy_langgraph.db")
+        )
         logger.bind(event="CHECKPOINTER|INIT").info(
-            "Creating SqliteSaver checkpointer", db_path=db_path
+            "Creating SqliteSaver checkpointer", db_path=resolved_db_path
         )
         try:
             import sqlite3
@@ -95,7 +105,7 @@ def create_checkpointer(
 
         # Phase 4E Fix: Create connection manually and pass to SqliteSaver
         # This avoids context manager issues and keeps connection open
-        conn = sqlite3.connect(db_path, check_same_thread=False)
+        conn = sqlite3.connect(resolved_db_path, check_same_thread=False)
         checkpointer = SqliteSaver(conn)
 
         logger.bind(event="CHECKPOINTER|SETUP").debug(

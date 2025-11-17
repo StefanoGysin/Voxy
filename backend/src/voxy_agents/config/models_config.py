@@ -38,7 +38,7 @@ class SubagentModelConfig:
     provider: str
     model_name: str
     api_key: str
-    max_tokens: int = 2000
+    max_tokens: int | None = 2000
     temperature: float = 0.1
     include_usage: bool = True
     agent_name: str = "generic"  # Used for reasoning config lookup
@@ -344,11 +344,13 @@ class VisionModelConfig(SubagentModelConfig):
 
     Additional Attributes:
         reasoning_effort: Adaptive reasoning level (minimal, low, medium, high)
+        reasoning_max_tokens: Max tokens for reasoning (OpenRouter reasoning models only)
         enable_postprocessing: Enable conversational post-processing
         cache_ttl_base: Base TTL for cache entries in seconds
     """
 
     reasoning_effort: str = "medium"
+    reasoning_max_tokens: int | None = None
     enable_postprocessing: bool = True
     cache_ttl_base: int = 600
 
@@ -362,7 +364,8 @@ def load_vision_config() -> VisionModelConfig:
         VISION_MODEL: Model name (configured in .env - see .env.example)
         OPENROUTER_API_KEY: OpenRouter API key (required if provider=openrouter)
         OPENAI_API_KEY: OpenAI API key (required if provider=openai)
-        VISION_MAX_TOKENS: Max tokens (default: 2000)
+        VISION_MAX_TOKENS: Max tokens for text output (optional - no limit if not set)
+        VISION_REASONING_MAX_TOKENS: Max reasoning tokens (OpenRouter only, optional)
         VISION_TEMPERATURE: Temperature (default: 0.1)
         VISION_REASONING_EFFORT: Reasoning level (default: "medium")
         VISION_CACHE_TTL: Cache TTL in seconds (default: 600)
@@ -373,6 +376,10 @@ def load_vision_config() -> VisionModelConfig:
 
     Raises:
         ValueError: If required configuration is missing
+
+    Note:
+        Model-agnostic configuration - supports 400+ models via LiteLLM.
+        VISION_REASONING_MAX_TOKENS only applies to OpenRouter reasoning models.
     """
     provider = os.getenv("VISION_PROVIDER", "openrouter")
     model_name = os.getenv("VISION_MODEL")
@@ -404,7 +411,16 @@ def load_vision_config() -> VisionModelConfig:
                 f"{provider.upper()}_API_KEY environment variable is required when VISION_PROVIDER={provider}"
             )
 
-    max_tokens = int(os.getenv("VISION_MAX_TOKENS", "2000"))
+    # Model-agnostic token configuration from .env
+    max_tokens_env = os.getenv("VISION_MAX_TOKENS", "")
+    max_tokens = int(max_tokens_env) if max_tokens_env else None
+
+    # Reasoning tokens configuration (for OpenRouter reasoning models only)
+    reasoning_max_tokens_env = os.getenv("VISION_REASONING_MAX_TOKENS", "")
+    reasoning_max_tokens = (
+        int(reasoning_max_tokens_env) if reasoning_max_tokens_env else None
+    )
+
     temperature = float(os.getenv("VISION_TEMPERATURE", "0.1"))
     include_usage = os.getenv("VISION_INCLUDE_USAGE", "true").lower() == "true"
     reasoning_effort = os.getenv("VISION_REASONING_EFFORT", "medium")
@@ -422,6 +438,7 @@ def load_vision_config() -> VisionModelConfig:
         include_usage=include_usage,
         agent_name="vision",
         reasoning_effort=reasoning_effort,
+        reasoning_max_tokens=reasoning_max_tokens,
         cache_ttl_base=cache_ttl_base,
         enable_postprocessing=enable_postprocessing,
     )

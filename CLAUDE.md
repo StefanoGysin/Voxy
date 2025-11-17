@@ -131,7 +131,7 @@ Para saber qual modelo está **realmente sendo usado** no ambiente atual:
 2. **Consultar quando necessário**: Antes de assumir qual modelo está ativo, sempre consulte o `.env`
    ou pergunte ao usuário sobre a configuração atual.
 
-3. **Flexibilidade**: Qualquer referência a "Claude Sonnet 4.5", "GPT-4o", etc. na documentação
+3. **Flexibilidade**: Qualquer referência a "Claude Sonnet 4.5", "GPT-5", etc. na documentação
    refere-se aos **defaults sugeridos**, não a requisitos fixos.
 
 ## ⚙️ Configuração Desenvolvimento
@@ -171,8 +171,8 @@ poetry run python scripts/test_agent.py --interactive
 
 **IMPORTANTE - Sistema Model-Agnostic**:
 
-O VOXY Agents é **100% configurável via variáveis de ambiente**. Não há modelos hardcoded no código.
-Todos os modelos (VOXY Orchestrator + 5 Subagentes) são configurados através do arquivo `.env`.
+O VOXY é **configurável via variáveis de ambiente**. Não há modelos hardcoded no código.
+Todos os modelos (VOXY Orchestrator + Subagentes) são configurados através do arquivo `.env`.
 
 **Setup rápido**:
 
@@ -180,7 +180,7 @@ Todos os modelos (VOXY Orchestrator + 5 Subagentes) são configurados através d
 2. Edite `backend/.env` com suas credenciais
 3. Consulte `backend/.env.example` para ver todas as variáveis disponíveis
 
-**Principais categorias**: API Keys, Database (Supabase), Cache (Redis), VOXY Orchestrator, Subagentes (5), External APIs.
+**Principais categorias**: API Keys, Database (Supabase), Cache (Redis), VOXY Orchestrator, Subagentes, External APIs.
 
 **Princípio Model-Agnostic**: Zero modelos hardcoded no código. Tudo configurável via `.env` - suporta 400+ modelos via LiteLLM Multi-Provider.
 

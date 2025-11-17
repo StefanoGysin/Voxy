@@ -103,3 +103,8 @@ insomnia_collection.json
 test_image.png
 coverage.json
 .claude
+
+# LangGraph SQLite Checkpointer databases
+*.db
+*.db-shm
+*.db-wal

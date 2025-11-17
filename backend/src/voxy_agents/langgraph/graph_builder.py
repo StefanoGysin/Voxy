@@ -212,7 +212,22 @@ class SupervisorGraphBuilder:
         Returns:
             Self for method chaining
         """
-        self.builder.add_node("vision_bypass", vision_bypass_node)
+
+        # Wrap vision bypass to add route tracking
+        def vision_bypass_with_routing(state):
+            result = vision_bypass_node(state)
+            # Ensure route_taken is set (vision_bypass_node should set it)
+            if "context" not in result or "route_taken" not in result.get(
+                "context", {}
+            ):
+                # Fallback: set route_taken if not already set
+                from .graph_state import update_context
+
+                updated = update_context(state, route_taken="PATH_1")
+                result = {**result, **updated}
+            return result
+
+        self.builder.add_node("vision_bypass", vision_bypass_with_routing)
         self.builder.add_edge("vision_bypass", END)
 
         self._nodes_added.add("vision_bypass")
@@ -255,9 +270,18 @@ class SupervisorGraphBuilder:
         """
         supervisor_agent = _create_supervisor_react_agent()
 
-        # Add the supervisor ReAct agent as a node
+        # Wrap supervisor to add route tracking
+        def supervisor_with_routing(state):
+            result = supervisor_agent.invoke(state)
+            # Add PATH_2 marker to context
+            from .graph_state import update_context
+
+            updated = update_context(state, route_taken="PATH_2")
+            return {**result, **updated}
+
+        # Add the supervisor ReAct agent as a node (wrapped)
         # create_react_agent returns a compiled graph that we add as a subgraph
-        self.builder.add_node("supervisor", supervisor_agent)
+        self.builder.add_node("supervisor", supervisor_with_routing)
 
         # Supervisor now handles tool calling internally via ReAct loop
         # It goes to END when done
@@ -287,7 +311,7 @@ class SupervisorGraphBuilder:
             Compiled CompiledGraph ready for invocation
 
         Example:
-            >>> graph = builder.compile(CheckpointerType.SQLITE, "voxy_graph.db")
+            >>> graph = builder.compile(CheckpointerType.SQLITE)  # Uses env var
             >>> result = graph.invoke(state, config={"configurable": {"thread_id": "123"}})
         """
         # Add START edge to entry_router

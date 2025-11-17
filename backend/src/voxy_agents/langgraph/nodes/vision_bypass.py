@@ -85,8 +85,12 @@ def vision_bypass_node(state: VoxyState) -> dict[str, Any]:
             analysis_length=len(analysis_content),
         )
 
-        # Update context with vision analysis
-        updated_context = update_context(state, vision_analysis=vision_analysis)
+        # Update context with vision analysis AND route_taken
+        updated_context = update_context(
+            state,
+            vision_analysis=vision_analysis,
+            route_taken="PATH_1",  # Mark PATH1 for observability
+        )
 
         return {
             "messages": result["messages"],

@@ -61,9 +61,8 @@ class LangGraphOrchestrator:
 
     Example:
         >>> orchestrator = LangGraphOrchestrator(
-        ...     checkpointer_type=CheckpointerType.SQLITE,
-        ...     db_path="voxy_graph.db"
-        ... )
+        ...     checkpointer_type=CheckpointerType.SQLITE
+        ... )  # Uses LANGGRAPH_DB_PATH from .env
         >>> response = await orchestrator.process_message(
         ...     message="Translate 'Hello' to French",
         ...     session_id="session-123",
@@ -243,12 +242,44 @@ class LangGraphOrchestrator:
         # Invoke graph
         result: VoxyState = self.graph.invoke(state, config=config)
 
-        # Extract response
+        # Extract response with robust content handling
         response_message = result["messages"][-1]
-        response_content = (
-            response_message.content
-            if hasattr(response_message, "content")
-            else str(response_message)
+
+        # Handle different content types from LangChain/LiteLLM
+        if hasattr(response_message, "content"):
+            content = response_message.content
+
+            # Case 1: content is a list (multimodal response with multiple blocks)
+            if isinstance(content, list):
+                # Extract text from all blocks and join
+                text_parts = []
+                for block in content:
+                    if isinstance(block, dict) and "text" in block:
+                        text_parts.append(block["text"])
+                    elif isinstance(block, str):
+                        text_parts.append(block)
+                    else:
+                        text_parts.append(str(block))
+                response_content = " ".join(text_parts)
+
+            # Case 2: content is a string (normal case)
+            elif isinstance(content, str):
+                response_content = content
+
+            # Case 3: content is something else (fallback)
+            else:
+                response_content = str(content)
+
+        # Case 4: No content attribute (fallback)
+        else:
+            response_content = str(response_message)
+
+        # CRITICAL DEBUG: Log extracted content
+        logger.bind(event="LANGGRAPH|ORCHESTRATOR_EXTRACT", trace_id=trace_id).info(
+            f"🔍 Content extracted: "
+            f"type={type(response_content).__name__}, "
+            f"length={len(response_content)}, "
+            f"preview={response_content[:200]}..."
         )
 
         # Determine route taken (for debugging/monitoring)

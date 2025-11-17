@@ -83,16 +83,31 @@ def create_vision_node() -> Callable:
     config = load_vision_config()
 
     # Create ChatLiteLLM for LangChain integration
-    litellm_model = ChatLiteLLM(
-        model=config.get_litellm_model_path(),
-        temperature=config.temperature,
-        max_tokens=config.max_tokens,
-    )
+    # Model-agnostic configuration: all limits come from .env
+    litellm_kwargs: dict[str, Any] = {
+        "model": config.get_litellm_model_path(),
+        "temperature": config.temperature,
+    }
+
+    # Add max_tokens only if configured in .env
+    if config.max_tokens is not None:
+        litellm_kwargs["max_tokens"] = config.max_tokens
+
+    # For OpenRouter provider: configure reasoning tokens if specified
+    # Note: Only reasoning-capable models use this (e.g., o1, claude-3.7-sonnet-thinking)
+    if config.provider == "openrouter" and hasattr(config, "reasoning_max_tokens"):
+        if config.reasoning_max_tokens is not None:
+            litellm_kwargs["extra_body"] = {
+                "reasoning": {"max_tokens": config.reasoning_max_tokens}
+            }
+
+    litellm_model = ChatLiteLLM(**litellm_kwargs)  # type: ignore[arg-type]
 
     logger.bind(event="LANGGRAPH|NODE_INIT").info(
         "Vision node created",
         model=config.get_litellm_model_path(),
         provider=config.provider,
+        max_tokens=config.max_tokens if config.max_tokens else "unlimited",
     )
 
     def vision_node(state: VoxyState) -> dict[str, Any]:
@@ -176,12 +191,22 @@ def create_vision_node() -> Callable:
 
         response = litellm_model.invoke(prompt_messages)
 
-        logger.bind(event="LANGGRAPH|VISION_NODE").info(
-            "Vision analysis completed",
-            response_length=(
-                len(response.content) if hasattr(response, "content") else 0
-            ),
-        )
+        # Log response metadata for debugging (especially for reasoning models like GPT-5)
+        if hasattr(response, "response_metadata"):
+            metadata = response.response_metadata
+            finish_reason = metadata.get("finish_reason", "unknown")
+
+            logger.bind(event="LANGGRAPH|VISION_NODE").info(
+                f"Vision response: finish_reason={finish_reason}, "
+                f"content_length={len(response.content) if hasattr(response, 'content') else 0}"
+            )
+
+            # Warn if response was truncated due to token limit
+            if finish_reason == "length":
+                logger.bind(event="LANGGRAPH|VISION_NODE").warning(
+                    "⚠️  Vision response truncated due to max_tokens limit! "
+                    "Set VISION_MAX_TOKENS to higher value or remove limit entirely."
+                )
 
         # Return state update with AI response
         return {"messages": [response]}
@@ -208,11 +233,24 @@ def create_vision_tool():
     config = load_vision_config()
 
     # Create ChatLiteLLM for LangChain integration
-    litellm_model = ChatLiteLLM(
-        model=config.get_litellm_model_path(),
-        temperature=config.temperature,
-        max_tokens=config.max_tokens,
-    )
+    # Model-agnostic configuration: all limits come from .env
+    litellm_kwargs: dict[str, Any] = {
+        "model": config.get_litellm_model_path(),
+        "temperature": config.temperature,
+    }
+
+    # Add max_tokens only if configured in .env
+    if config.max_tokens is not None:
+        litellm_kwargs["max_tokens"] = config.max_tokens
+
+    # For OpenRouter provider: configure reasoning tokens if specified
+    if config.provider == "openrouter" and hasattr(config, "reasoning_max_tokens"):
+        if config.reasoning_max_tokens is not None:
+            litellm_kwargs["extra_body"] = {
+                "reasoning": {"max_tokens": config.reasoning_max_tokens}
+            }
+
+    litellm_model = ChatLiteLLM(**litellm_kwargs)  # type: ignore[arg-type]
 
     @tool
     def analyze_image(
@@ -257,15 +295,37 @@ def create_vision_tool():
         # Invoke model
         response = litellm_model.invoke(messages_list)
 
-        # Extract content from AIMessage
-        analysis_result = (
-            response.content if hasattr(response, "content") else str(response)
-        )
+        # Extract content from AIMessage with robust handling
+        if hasattr(response, "content"):
+            content = response.content
+
+            # Handle list content (multimodal blocks)
+            if isinstance(content, list):
+                text_parts = []
+                for block in content:
+                    if isinstance(block, dict) and "text" in block:
+                        text_parts.append(block["text"])
+                    elif isinstance(block, str):
+                        text_parts.append(block)
+                    else:
+                        text_parts.append(str(block))
+                analysis_result = " ".join(text_parts)
+
+            # Handle string content (normal case)
+            elif isinstance(content, str):
+                analysis_result = content
+
+            # Fallback
+            else:
+                analysis_result = str(content)
+        else:
+            analysis_result = str(response)
 
         logger.bind(event="LANGGRAPH|VISION_TOOL").info(
-            "Vision analysis completed",
-            image_url_length=len(image_url),
-            result_length=len(analysis_result),
+            f"🔍 Vision tool result: "
+            f"type={type(analysis_result).__name__}, "
+            f"length={len(analysis_result)}, "
+            f"preview={analysis_result[:200]}..."
         )
 
         return analysis_result
