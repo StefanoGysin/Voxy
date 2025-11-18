@@ -46,7 +46,7 @@ from loguru import logger
 from ..config.models_config import load_orchestrator_config
 from .checkpointer import CheckpointerType, create_checkpointer
 from .graph_state import VoxyState
-from .nodes.calculator_node import create_calculator_tool
+from agents.calculator import create_calculator_tool
 from .nodes.corrector_node import create_corrector_tool
 from .nodes.entry_router import entry_router
 from .nodes.translator_node import create_translator_node, create_translator_tool
