@@ -2,20 +2,19 @@
 
 ## 🎯 Visão Geral
 
-**VOXY Agents Backend** é um sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados através da arquitetura **LiteLLM Multi-Provider**.
+**VOXY Agents Backend** é um sistema multi-agente inteligente desenvolvido em Python com **LangGraph 0.6+** e **LangChain Core 0.3+**. Implementa orquestração inteligente com VOXY (LangGraph StateGraph) coordenando 5 subagentes especializados (LangGraph Nodes) através da arquitetura **LiteLLM Multi-Provider**.
 
 ## Requisitos
 
 - Python 3.12+ (minimo 3.12.3)
 - Poetry 2.1.4
-- OpenAI Agents SDK 0.3.3
+- LangGraph 0.6+
+- LangChain Core 0.3+
 - LiteLLM 1.75.7+
 - FastAPI 0.115.14
 - Next.js 15.4.6
 - Node.js 18+ (para frontend)
 - Redis 5.0+
-
-> Nota: OpenAI Agents SDK v0.4.2 esta disponivel, mas a migracao ainda nao foi realizada. Consulte `.safe-zone/migration-plan.md` para detalhes.
 
 ### ✨ Características Principais
 
@@ -32,7 +31,7 @@
 - **Runtime**: Python 3.12+ (minimo 3.12.3)
 - **Package Manager**: Poetry 2.1.4
 - **Web Framework**: FastAPI 0.115.14 + Uvicorn
-- **AI Framework**: OpenAI Agents SDK 0.3.3
+- **AI Framework**: LangGraph 0.6+ + LangChain Core 0.3+
 - **LLM Gateway**: LiteLLM 1.75.7+ (400+ modelos)
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
 - **Cache**: Redis 5.0+
@@ -47,22 +46,61 @@
 LiteLLM é uma camada de abstração que unifica o acesso a 400+ modelos LLM através de uma interface consistente. Cada subagente pode ser configurado independentemente via variáveis de ambiente.
 
 ```
-┌─ VOXY Orchestrator (GPT-4o) ────────────────────┐
-│                                                  │
-├─ Calculator Agent ────> LiteLLM ──> OpenRouter ─┤
-│  (Math reasoning)         ↓                      │
-│                      [Model Router]              │
-├─ Corrector Agent ────> LiteLLM ──> Anthropic ───┤
-│  (Grammar correction)     ↓                      │
-│                      [API Gateway]               │
-├─ Translator Agent ───> LiteLLM ──> Google AI ───┤
-│  (Multilingual)           ↓                      │
-│                                                  │
-├─ Weather Agent ───────> LiteLLM ──> OpenAI ─────┤
-│  (Tool calling)           ↓                      │
-│                                                  │
-└─ Vision Agent (GPT-5) ──> Direct OpenAI ────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  VOXY ORCHESTRATOR (LangGraph StateGraph)                       │
+│  ├── State Management: SQLite Checkpointer (persistent)         │
+│  ├── Model: 100% configurável via ORCHESTRATOR_MODEL (.env)     │
+│  ├── Provider: LiteLLM Multi-Provider (400+ modelos)            │
+│  └── Default (.env.example): anthropic/claude-sonnet-4.5        │
+├─────────────────────────────────────────────────────────────────┤
+│  SUBAGENTES (LangGraph Nodes - Todos Model-Agnostic via .env)  │
+│                                                                  │
+│  ┌─ Calculator Agent (LangGraph Node) ────────────────────────┐ │
+│  │  ├── Model: CALCULATOR_MODEL (.env configurável)           │ │
+│  │  ├── Provider: CALCULATOR_PROVIDER (.env configurável)     │ │
+│  │  ├── LiteLLM: 400+ modelos suportados                      │ │
+│  │  └── Default (.env.example): deepseek/deepseek-chat-v3.1   │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌─ Corrector Agent (LangGraph Node) ─────────────────────────┐ │
+│  │  ├── Model: CORRECTOR_MODEL (.env configurável)            │ │
+│  │  ├── Provider: CORRECTOR_PROVIDER (.env configurável)      │ │
+│  │  ├── LiteLLM: 400+ modelos suportados                      │ │
+│  │  └── Default (.env.example): google/gemini-2.5-flash       │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌─ Translator Agent (LangGraph Node) ────────────────────────┐ │
+│  │  ├── Model: TRANSLATOR_MODEL (.env configurável)           │ │
+│  │  ├── Provider: TRANSLATOR_PROVIDER (.env configurável)     │ │
+│  │  ├── LiteLLM: 400+ modelos suportados                      │ │
+│  │  └── Default (.env.example): google/gemini-2.5-pro         │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌─ Weather Agent (LangGraph Node) ───────────────────────────┐ │
+│  │  ├── Model: WEATHER_MODEL (.env configurável)              │ │
+│  │  ├── Provider: WEATHER_PROVIDER (.env configurável)        │ │
+│  │  ├── LiteLLM: 400+ modelos suportados                      │ │
+│  │  └── Default (.env.example): openai/gpt-4.1-nano           │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌─ Vision Agent (LangGraph Node) ────────────────────────────┐ │
+│  │  ├── Model: VISION_MODEL (.env configurável)               │ │
+│  │  ├── Provider: VISION_PROVIDER (.env configurável)         │ │
+│  │  ├── LiteLLM: 400+ modelos multimodais suportados          │ │
+│  │  └── Default (.env.example): gpt-4o (multimodal capable)   │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+⚙️ PRINCÍPIO ARQUITETURAL: 100% Model-Agnostic
+   ├── ❌ ZERO modelos hardcoded no código
+   ├── ✅ TUDO configurável via variáveis .env
+   ├── ✅ Suporte a 400+ modelos via LiteLLM Multi-Provider
+   ├── ✅ Troca de modelos SEM modificar código
+   └── ✅ Defaults em .env.example são apenas SUGESTÕES
 ```
+
+**Nota**: Os modelos mencionados como "Default" são apenas exemplos do `.env.example`.
+O sistema suporta QUALQUER modelo compatível com LiteLLM (400+ opções).
 
 ### Benefícios da Arquitetura
 
@@ -481,7 +519,8 @@ OPENWEATHER_API_KEY=your_key_here
 
 ### Documentação de Referência
 
-- [OpenAI Agents SDK](https://github.com/openai/openai-agents-sdk)
+- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
+- [LangChain Core Documentation](https://python.langchain.com/docs/get_started/introduction)
 - [LiteLLM Documentation](https://docs.litellm.ai/)
 - [OpenRouter Models](https://openrouter.ai/models)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)

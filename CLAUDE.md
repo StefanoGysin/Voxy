@@ -286,29 +286,48 @@ Documentação completa disponível em `/docs` (FastAPI Swagger) ou veja `backen
 
 ### 🔍 Como Usar Context7 Corretamente
 
-**Exemplo Real - Token Usage Tracking**:
+**Exemplo Real - Token Usage Tracking com LangGraph + LiteLLM**:
 
-❌ **ERRADO** (o que NÃO fazer):
+> ⚠️ **NOTA HISTÓRICA**: O exemplo abaixo documenta a lição aprendida durante a migração do projeto.
+> Originalmente (2025-10), o VOXY usava OpenAI Agents SDK. Em 2025-11 (commit `3652f23`),
+> migramos 100% para **LangGraph + LiteLLM**. Este exemplo mostra a abordagem correta atual.
+
+❌ **ERRADO** (o que NÃO fazer - implementar sem consultar docs):
 ```python
-# Tentamos implementar token tracking manualmente
-if hasattr(result, 'usage') and result.usage:  # ❌ Caminho ERRADO
+# Tentativa de implementar token tracking sem consultar documentação
+if hasattr(result, 'usage') and result.usage:  # ❌ Caminho ERRADO - estrutura desconhecida
     tokens = result.usage.total_tokens
 ```
 
-✅ **CORRETO** (consultar documentação primeiro):
+✅ **CORRETO** (consultar documentação primeiro - Implementação Atual):
 ```bash
 # 1. Resolver library ID
-mcp__context7__resolve-library-id("openai agents sdk")
+mcp__context7__resolve-library-id("litellm")
 
-# 2. Buscar documentação sobre token usage
+# 2. Buscar documentação sobre token usage tracking
 mcp__context7__get-library-docs(
-    context7CompatibleLibraryID="/openai/openai-agents-python",
-    topic="token usage RunResult response tracking"
+    context7CompatibleLibraryID="/berriai/litellm",
+    topic="token usage tracking cost calculation completion"
 )
 
-# Descoberta: OpenAI Agents SDK usa result.context_wrapper.usage
-if hasattr(result, 'context_wrapper') and result.context_wrapper.usage:  # ✅ CORRETO
-    tokens = result.context_wrapper.usage.total_tokens
+# Descoberta: LiteLLM padroniza usage tracking para 400+ modelos
+```
+
+```python
+# Implementação correta com LiteLLM (funciona com 400+ modelos)
+from litellm import completion_cost
+
+# Token tracking standardizado
+usage_info = response.usage  # LiteLLM standardized format
+cost = completion_cost(
+    model=model_name,
+    prompt_tokens=usage_info.prompt_tokens,
+    completion_tokens=usage_info.completion_tokens
+)
+
+# Exemplo real do VOXY (backend/src/voxy_agents/core/subagents/)
+tokens_used = usage_info.total_tokens
+estimated_cost = cost
 ```
 
 ### 📖 Bibliotecas Principais para Consultar
@@ -337,14 +356,16 @@ if hasattr(result, 'context_wrapper') and result.context_wrapper.usage:  # ✅ C
 
 ### ⚡ Benefícios Comprovados
 
-**Caso Real**: Token Usage Tracking Implementation
+**Caso Real**: Token Usage Tracking Implementation (LangGraph + LiteLLM)
 
 | Abordagem | Tempo | Resultado |
 |-----------|-------|-----------|
-| ❌ **Sem consultar docs** | 2h tentando `result.usage` | FALHA - caminho incorreto |
-| ✅ **Com Context7 docs** | 30min | SUCESSO - `context_wrapper.usage` + testes 100% |
+| ❌ **Sem consultar docs** | 2h tentando `result.usage` manualmente | FALHA - caminho incorreto |
+| ✅ **Com Context7 docs** | 30min | SUCESSO - LiteLLM `usage` standardized + testes 100% |
 
 **Economia**: **75% menos tempo** + **solução correta** desde o início
+
+**Nota**: Exemplo atualizado para refletir implementação atual (LangGraph + LiteLLM). Originalmente documentamos a descoberta durante fase OpenAI SDK (2025-10).
 
 ### 🚨 Sinais de Alerta
 

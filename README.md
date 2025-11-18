@@ -6,14 +6,13 @@ Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provide
 
 - Python 3.12+ (minimo 3.12.3)
 - Poetry 2.1.4
-- OpenAI Agents SDK 0.3.3
+- LangGraph 0.6+
+- LangChain Core 0.3+
 - LiteLLM 1.75.7+
 - FastAPI 0.115.14
 - Next.js 15.4.6
 - Node.js 18+ (para frontend)
 - Redis 5.0+
-
-> Nota: OpenAI Agents SDK v0.4.2 esta disponivel, mas a migracao ainda nao foi realizada. Consulte `.safe-zone/migration-plan.md` para detalhes.
 
 ## 🚀 Status Atual
 
@@ -36,10 +35,10 @@ Sistema conversacional multi-agente com VOXY Orchestrator (LiteLLM Multi-Provide
 
 ## 🏗️ Arquitetura
 
-### Backend (Python + OpenAI Agents SDK)
-- **VOXY Orchestrator**: LiteLLM Multi-Provider (400+ modelos configuráveis via .env, default: anthropic/claude-sonnet-4.5)
-- **4 Subagentes Configuráveis via LiteLLM**: Calculator, Corrector, Translator, Weather (400+ modelos disponíveis)
-- **Stack**: Python 3.12+ (minimo 3.12.3), Poetry 2.1.4, FastAPI 0.115.14, Supabase, Redis
+### Backend (Python + LangGraph)
+- **VOXY Orchestrator**: LangGraph StateGraph + LiteLLM Multi-Provider (400+ modelos configuráveis via .env)
+- **5 Subagentes LangGraph**: Calculator, Corrector, Translator, Weather, Vision (Todos configuráveis via .env - 400+ modelos disponíveis)
+- **Stack**: Python 3.12+ (minimo 3.12.3), Poetry 2.1.4, FastAPI 0.115.14, LangGraph 0.6+, LangChain Core 0.3+, Supabase, Redis
 - **API Consolidada**: 7 módulos (/auth, /chat, /sessions, /messages, /images, /test) + Modelos centralizados
 - **Isolated Testing**: SubagentTester para debug rápido (CLI + HTTP + Programático)
 - **Arquitetura DRY**: Modelos Pydantic compartilhados em `api/models.py`
@@ -239,20 +238,23 @@ NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000
 - **Drag & Drop**: Funciona perfeitamente com o grid system
 
 ### Multi-Agent Chat
-- **Translator**: 50+ idiomas (modelo configurável via `.env`)
+- **Translator** (LangGraph Node): 50+ idiomas (100% configurável via `.env`)
   - Recomendado: Gemini 2.5 Pro para máxima qualidade multilíngue
   - Alternativas: Claude 3.7 Sonnet, DeepSeek V3.1, modelos gratuitos
-- **Corrector**: Gramática e estilo (modelo configurável via `.env`)
+- **Corrector** (LangGraph Node): Gramática e estilo (100% configurável via `.env`)
   - Recomendado: Gemini 2.5 Flash Preview para gramática PT-BR
   - Alternativas: Claude 3.7 Sonnet, Gemini 2.0 Flash Experimental (grátis)
-- **Weather**: Dados meteorológicos em tempo real (modelo configurável via `.env`)
+- **Weather** (LangGraph Node): Dados meteorológicos em tempo real (100% configurável via `.env`)
   - Recomendado: GPT-4.1 Nano para tool calling eficiente
   - Alternativas: Gemini 2.5 Flash Preview, GPT-4o-mini
-- **Calculator**: Cálculos matemáticos complexos (modelo configurável via `.env`)
+- **Calculator** (LangGraph Node): Cálculos matemáticos complexos (100% configurável via `.env`)
   - Recomendado: DeepSeek V3.1 para raciocínio matemático + baixo custo
   - Alternativas: Claude Sonnet 4.5, GPT-4.1-mini, DeepSeek V3 0324 (grátis)
-- **Todos os subagentes**: Suporte a 400+ modelos via LiteLLM Multi-Provider Architecture
-- **VOXY**: Orquestração inteligente (LiteLLM configurável via ORCHESTRATOR_MODEL - ver .env.example)
+- **Vision** (LangGraph Node): Análise multimodal avançada (100% configurável via `.env`)
+  - Recomendado: GPT-4o para análise de imagens
+  - Alternativas: Claude 3.7 Sonnet, Gemini 2.5 Pro (vision-capable models)
+- **Todos os subagentes**: Arquitetura LangGraph + LiteLLM Multi-Provider (400+ modelos, zero hardcoding)
+- **VOXY Orchestrator**: LangGraph StateGraph (100% configurável via ORCHESTRATOR_MODEL - ver .env.example)
 
 ### Comunicação Real-time Segura
 - **WebSocket Seguro**: JWT **obrigatório** via query parameter (código 1008 se ausente/inválido)
