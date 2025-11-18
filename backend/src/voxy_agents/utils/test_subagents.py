@@ -28,14 +28,17 @@ from agents import Runner
 from pydantic import BaseModel
 
 from ..config.models_config import load_orchestrator_config
-from ..core.subagents import (
-    get_calculator_agent,
-    get_corrector_agent,
-    get_translator_agent,
-    get_weather_agent,
+from ..core.subagents import (  # type: ignore[attr-defined]
+    get_calculator_agent,  # type: ignore[attr-defined]
+    get_corrector_agent,  # type: ignore[attr-defined]
+    get_translator_agent,  # type: ignore[attr-defined]
+    get_weather_agent,  # type: ignore[attr-defined]
 )
-from ..core.subagents.vision_agent import VisionAgent, get_vision_agent
-from ..main import VOXYSystem
+from ..core.subagents.vision_agent import (  # type: ignore[import-not-found]
+    VisionAgent,
+    get_vision_agent,
+)
+from ..main import VOXYSystem  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
 

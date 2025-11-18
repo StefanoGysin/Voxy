@@ -1,16 +1,16 @@
 # VOXY Agents - Sistema Multi-Agente
 
-Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0.3.3. Implementa orquestração inteligente com VOXY coordenando subagentes especializados, apresentado através de uma interface **VOXY Web OS** completa.
+Sistema multi-agente inteligente desenvolvido em Python com LangGraph. Implementa orquestração inteligente com VOXY coordenando subagentes especializados, apresentado através de uma interface **VOXY Web OS** completa.
 
 ## 🎯 Status: 100% OPERACIONAL
 
-- **5 Subagentes SDK**: Translator, Corrector, Weather, Calculator, Vision (LiteLLM - 400+ modelos configuráveis)
-- **Vision Agent**: Análise multimodal com OpenAI Agents SDK + LiteLLM Multi-Provider
+- **5 Subagentes LangGraph**: Translator, Corrector, Weather, Calculator, Vision (LiteLLM - 400+ modelos configuráveis)
+- **Vision Agent**: Análise multimodal com LangGraph + LiteLLM Multi-Provider
 - **Token Usage Tracking**: Sistema centralizado de rastreamento de tokens + cost estimation (100% coverage)
 - **Image Management System**: Sistema completo de gerenciamento de imagens integrado ao Web OS
 - **VOXY Web OS**: Interface desktop completa com 13 wallpapers dinâmicos
 - **Professional Drag & Drop**: Smart swapping, collision detection, grid responsivo (6 breakpoints)
-- **VOXY Orchestrator**: OpenAI Agents SDK + LiteLLM Multi-Provider (400+ modelos configuráveis via .env)
+- **VOXY Orchestrator**: LangGraph + LiteLLM Multi-Provider (400+ modelos configuráveis via .env)
 - **Remember Me System**: Auto-login e persistência de credenciais (100% funcional)
 - **Stack Completa**: FastAPI + Next.js 15 + Supabase + Redis
 - **Performance**: 7-8s análise multimodal, <2s operações standard
@@ -19,13 +19,14 @@ Sistema multi-agente inteligente desenvolvido em Python com OpenAI Agents SDK v0
 
 ### Core Components
 ```
-VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
+VOXY Orchestrator (LangGraph + LiteLLM Multi-Provider)
 ├── Model Selection: 100% configurável via .env (ORCHESTRATOR_MODEL)
 ├── Configuration: 100% via environment variables (ORCHESTRATOR_*)
 ├── Architecture: Factory pattern (models_config.py + llm_factory.py)
+├── State Management: SQLite checkpointer (persistent conversations)
 ├── Flexibility: 400+ modelos disponíveis (OpenRouter, OpenAI, Anthropic, Google)
-└── 5 Subagentes SDK (OpenAI Agents SDK + LiteLLM - 400+ modelos)
-  └── Translator, Corrector, Weather, Calculator, vision (LiteLLM configuráveis)
+└── 5 Subagentes LangGraph (Nodes + Tools - 400+ modelos)
+  └── Translator, Corrector, Weather, Calculator, Vision (LiteLLM configuráveis)
 ├── Image Management System
 │   ├── Upload: Drag & drop + validation + progress tracking
 │   ├── Storage: Supabase Storage + organized paths
@@ -45,7 +46,7 @@ VOXY Orchestrator (OpenAI Agents SDK + LiteLLM Multi-Provider)
 ## 📋 Stack Tecnológico
 
 **Backend**: Python 3.12+, Poetry 2.1.4, FastAPI, Uvicorn
-**AI**: OpenAI Agents SDK 0.3.3, LiteLLM 1.75.7+ Multi-Provider (400+ modelos configuráveis via .env)
+**AI**: LangGraph 0.6+, LangChain Core 0.3+, LiteLLM 1.75.7+ Multi-Provider (400+ modelos configuráveis via .env)
 **Database**: Supabase (PostgreSQL + Auth + Storage)
 **Cache**: Redis 5.0+ (Token blacklisting + Vision cache)
 **Frontend**: Next.js 15.4.6, TypeScript, TailwindCSS, Radix UI
@@ -317,7 +318,8 @@ if hasattr(result, 'context_wrapper') and result.context_wrapper.usage:  # ✅ C
 | Biblioteca | Library ID | Quando Consultar |
 |------------|-----------|------------------|
 | **LiteLLM** | `/berriai/litellm` | Token tracking, cost calculation, model usage |
-| **OpenAI Agents SDK** | `/openai/openai-agents-python` | Agent patterns, Runner API, sessions, usage |
+| **LangGraph** | `/langchain-ai/langgraph` | Stateful multi-agent workflows, checkpointers, state management |
+| **LangChain Core** | `/langchain-ai/langchain` | LLM abstractions, chains, tools |
 | **Next.js** | Context7 search | Routing, data fetching, app directory |
 | **Supabase** | Context7 search | Auth, database, storage, realtime |
 | **Radix UI** | Context7 search | Component APIs, accessibility |

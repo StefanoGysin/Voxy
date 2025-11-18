@@ -6,7 +6,6 @@ Implements Progressive Disclosure Interface from CREATIVE MODE decisions.
 """
 
 import json
-import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
@@ -24,12 +23,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from pydantic import BaseModel
 
-from ..main import get_voxy_system
+from ..langgraph_main import get_voxy_system
 from .middleware.auth import TokenData
 from .middleware.logging_context import LoggingContextMiddleware
 from .routes import auth_router, chat_router, images_router, sessions_router
 from .routes.messages import router as messages_router
-from .routes.test import router as test_router
+
+# NOTE: Test router disabled during LangGraph migration (SDK-specific)
+# from .routes.test import router as test_router
 
 # Pydantic models for API - Chat models moved to routes/chat.py
 # Kept only system-level models here
@@ -103,8 +104,11 @@ async def lifespan(app: FastAPI):
     # Calculate timing
     elapsed = time.perf_counter() - startup_start
 
-    # Get orchestrator model path dynamically
-    orchestrator_model = voxy_system.orchestrator.config.get_litellm_model_path()
+    # Get orchestrator model path dynamically from environment
+    from ..config.models_config import load_orchestrator_config
+
+    orchestrator_config = load_orchestrator_config()
+    orchestrator_model = orchestrator_config.get_litellm_model_path()
 
     # Startup summary
     logger.bind(event="STARTUP|COMPLETE").info(
@@ -159,7 +163,8 @@ app.include_router(chat_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
 app.include_router(images_router, prefix="/api")
-app.include_router(test_router, prefix="/api")  # Subagent testing endpoints
+# NOTE: Test router disabled during LangGraph migration (SDK-specific)
+# app.include_router(test_router, prefix="/api")  # Subagent testing endpoints
 
 
 @app.get("/")
@@ -349,69 +354,28 @@ async def websocket_endpoint(
                     f"🔍 FastAPI WebSocket DEBUG - message='{message_data['message']}', image_url='{image_url}'"
                 )
 
-                # Check feature flag for LangGraph vs SDK orchestrator
-                use_langgraph = (
-                    os.getenv("VOXY_LANGGRAPH_ENABLED", "false").lower() == "true"
+                # LangGraph orchestrator (default and only engine)
+                logger.bind(event="WEBSOCKET|ENGINE").info(
+                    "🎯 WebSocket using LangGraph orchestrator",
+                    session_id=session_id,
+                    user_id=user_id,
                 )
 
-                if use_langgraph:
-                    # LangGraph orchestrator (Phase 2-6 migration)
-                    from ..langgraph.checkpointer import CheckpointerType
-                    from ..langgraph.orchestrator import get_langgraph_orchestrator
+                voxy_system = get_voxy_system()
+                response, metadata = await voxy_system.chat(
+                    message=message_data["message"],
+                    user_id=user_id,
+                    session_id=session_id,
+                    image_url=image_url,
+                )
 
-                    logger.bind(event="WEBSOCKET|ENGINE").info(
-                        "🎯 WebSocket using LangGraph orchestrator",
-                        session_id=session_id,
-                        user_id=user_id,
-                    )
-
-                    # Model-Agnostic: Read db_path from environment variable
-                    db_path = os.getenv("LANGGRAPH_DB_PATH", "data/voxy_langgraph.db")
-                    langgraph_orch = get_langgraph_orchestrator(
-                        checkpointer_type=CheckpointerType.SQLITE,
-                        db_path=db_path,
-                    )
-
-                    result = await langgraph_orch.process_message(
-                        message=message_data["message"],
-                        session_id=session_id,
-                        user_id=user_id,
-                        image_url=image_url,
-                    )
-
-                    response = result["content"]
-
-                    # CRITICAL DEBUG: Log response details (INFO level to always show)
-                    logger.bind(event="WEBSOCKET|RESPONSE_DEBUG").info(
-                        f"🔍 LangGraph response extracted: "
-                        f"type={type(response).__name__}, "
-                        f"length={len(response) if response else 0}, "
-                        f"preview={response[:200] if response else 'EMPTY'}..."
-                    )
-
-                    metadata = {
-                        "engine": "langgraph",
-                        "route_taken": result.get("route_taken"),
-                        "thread_id": result.get("thread_id"),
-                        "trace_id": result.get("trace_id"),
-                        "usage": result.get("usage"),
-                    }
-
-                else:
-                    # OpenAI Agents SDK orchestrator (default/legacy)
-                    logger.bind(event="WEBSOCKET|ENGINE").info(
-                        "🎯 WebSocket using SDK orchestrator",
-                        session_id=session_id,
-                        user_id=user_id,
-                    )
-
-                    voxy_system = get_voxy_system()
-                    response, metadata = await voxy_system.chat(
-                        message=message_data["message"],
-                        user_id=user_id,
-                        session_id=session_id,
-                        image_url=image_url,
-                    )
+                # Log response details for debugging
+                logger.bind(event="WEBSOCKET|RESPONSE_DEBUG").info(
+                    f"🔍 LangGraph response extracted: "
+                    f"type={type(response).__name__}, "
+                    f"length={len(response) if response else 0}, "
+                    f"preview={response[:200] if response else 'EMPTY'}..."
+                )
 
                 processing_time = (datetime.now() - start_time).total_seconds()
 
@@ -424,8 +388,10 @@ async def websocket_endpoint(
                     "processing_time": processing_time,
                     "timestamp": datetime.now().isoformat(),
                     "metadata": {
-                        "engine": metadata.get("engine", "sdk"),
+                        "engine": metadata.get("engine", "langgraph"),
                         "route_taken": metadata.get("route_taken"),
+                        "thread_id": metadata.get("thread_id"),
+                        "trace_id": metadata.get("trace_id"),
                     },
                 }
 

@@ -77,19 +77,8 @@ def print_header(text: str):
 
 
 async def test_translator(args):
-    """Test translator agent (routing to SDK or LangGraph)."""
-    if args.engine == "langgraph":
-        return await test_translator_langgraph(args)
-
-    # SDK implementation
-    input_data = {
-        "text": args.text,
-        "target_language": args.target_language,
-    }
-    if args.source_language:
-        input_data["source_language"] = args.source_language
-
-    return await run_test("translator", input_data, args)
+    """Test translator agent with LangGraph engine."""
+    return await test_translator_langgraph(args)
 
 
 async def test_translator_langgraph(args):

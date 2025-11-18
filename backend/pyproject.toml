@@ -1,14 +1,13 @@
 [tool.poetry]
 name = "voxy-agents"
 version = "0.1.0"
-description = "Sistema multi-agente VOXY com OpenAI Agents SDK"
+description = "Sistema multi-agente VOXY com LangGraph"
 authors = ["Stefano Gysin <email@domain.com>"]
 readme = "README.md"
 packages = [{include = "voxy_agents", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-openai-agents = {extras = ["litellm"], version = "^0.3.0"}
 openai = "^1.0.0"
 fastapi = "^0.115.0"
 uvicorn = "^0.31.1"
@@ -28,7 +27,7 @@ pillow = "^11.3.0"
 aiofiles = "^24.1.0"
 nest-asyncio = "^1.6.0"
 loguru = "^0.7.3"
-# LangGraph Migration Dependencies (Phase 1)
+# LangGraph Dependencies (Production Orchestration Engine)
 langgraph = "^0.6.0"
 langchain-core = "^0.3.0"
 langchain-community = "^0.3.0"
@@ -104,10 +103,6 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "voxy_agents.core.cache.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "voxy_agents.core.voxy_orchestrator"
 ignore_errors = true
 
 [[tool.mypy.overrides]]

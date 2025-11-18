@@ -5,7 +5,7 @@ Pytest configuration and global fixtures for VOXY Agents tests.
 import asyncio
 import os
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import fakeredis
 import pytest
@@ -45,31 +45,6 @@ def mock_openai_client():
     mock_client.chat.completions.create.return_value = mock_response
 
     return mock_client
-
-
-@pytest.fixture
-def mock_openai_agents_sdk():
-    """Mock OpenAI Agents SDK components."""
-    mock_agent = MagicMock()
-    mock_runner = MagicMock()
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(text="Test agent response")]
-
-    mock_runner.run = AsyncMock(return_value=mock_response)
-
-    with (
-        patch("agents.Agent", return_value=mock_agent),
-        patch("agents.Runner", return_value=mock_runner),
-        patch("agents.function_tool") as mock_function_tool,
-    ):
-        mock_function_tool.return_value = MagicMock()
-
-        yield {
-            "agent": mock_agent,
-            "runner": mock_runner,
-            "response": mock_response,
-            "function_tool": mock_function_tool,
-        }
 
 
 # === Supabase Mocking Infrastructure ===

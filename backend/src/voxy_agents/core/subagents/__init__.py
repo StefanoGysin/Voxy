@@ -1,15 +1,20 @@
-"""Subagents for VOXY system."""
+"""
+Subagents for VOXY system.
 
-from .calculator_agent import get_calculator_agent
-from .corrector_agent import get_corrector_agent
-from .translator_agent import get_translator_agent
-from .vision_agent import get_vision_agent
-from .weather_agent import get_weather_agent
+NOTE: SDK-based subagent implementations have been removed during LangGraph migration.
+All subagent logic is now implemented as LangGraph nodes in:
+    voxy_agents.langgraph.nodes.*
 
-__all__ = [
-    "get_calculator_agent",
-    "get_corrector_agent",
-    "get_translator_agent",
-    "get_vision_agent",
-    "get_weather_agent",
-]
+This module is kept for backward compatibility with existing imports in:
+    - utils/test_subagents.py (utility file)
+    - Other legacy code that may reference this module
+
+LangGraph implementations:
+    - translator_node.py
+    - corrector_node.py
+    - calculator_node.py
+    - weather_node.py
+    - vision_node.py
+"""
+
+__all__: list[str] = []
