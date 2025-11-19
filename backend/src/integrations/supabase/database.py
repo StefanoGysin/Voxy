@@ -1,16 +1,22 @@
 """
 Supabase integration for VOXY Agents persistence.
-
-DEPRECATED: This file is kept for backward compatibility only.
-New code should import from integrations.supabase.database instead.
-
-Migration path:
-    from voxy_agents.core.database.supabase_integration import ...
-    → from integrations.supabase.database import ...
 """
 
-# Re-export all from new location for backward compatibility
-from integrations.supabase.database import *  # noqa: F403
+import logging
+from datetime import datetime, timezone
+from typing import Any, Optional
+
+from .client import (
+    get_supabase_client,
+    get_supabase_service_client,
+)
+from voxy_agents.core.database.models import (
+    ChatSession,
+    Message,
+    MessageWithAgent,
+    SessionDetail,
+    SessionSummary,
+)
 
 logger = logging.getLogger(__name__)
 

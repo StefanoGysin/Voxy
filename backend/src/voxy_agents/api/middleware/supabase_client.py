@@ -1,36 +1,18 @@
 """
 Supabase client configuration for VOXY Agents.
+
+DEPRECATED: This file is kept for backward compatibility only.
+New code should import from integrations.supabase instead.
+
+Migration path:
+    from voxy_agents.api.middleware.supabase_client import get_supabase_client
+    → from integrations.supabase import get_supabase_client
 """
 
-from functools import lru_cache
+# Re-export from new location for backward compatibility
+from integrations.supabase import get_supabase_client, get_supabase_service_client
 
-from supabase import Client, create_client
-
-from ...config.settings import settings
-
-
-@lru_cache
-def get_supabase_client() -> Client:
-    """
-    Get configured Supabase client instance with anon key.
-
-    Returns:
-        Client: Configured Supabase client
-    """
-    return create_client(
-        supabase_url=settings.supabase_url, supabase_key=settings.supabase_anon_key
-    )
-
-
-@lru_cache
-def get_supabase_service_client() -> Client:
-    """
-    Get configured Supabase client instance with service_role key.
-    This bypasses RLS and has full database access.
-
-    Returns:
-        Client: Configured Supabase service client
-    """
-    return create_client(
-        supabase_url=settings.supabase_url, supabase_key=settings.supabase_service_key
-    )
+__all__ = [
+    "get_supabase_client",
+    "get_supabase_service_client",
+]
