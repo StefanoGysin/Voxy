@@ -20,13 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from voxy_agents.api.middleware.logging_context import LoggingContextMiddleware
-from voxy_agents.api.routes import (
-    auth as auth_router,
-    chat as chat_router,
-    images as images_router,
-    messages as messages_router,
-    sessions as sessions_router,
-)
+from .routes import auth, chat, images, messages, sessions
 from voxy_agents.config.models_config import load_orchestrator_config
 from voxy_agents.langgraph_main import get_voxy_system
 
@@ -101,11 +95,11 @@ app.add_middleware(
 )
 
 # Include API routers
-app.include_router(auth_router.router, prefix="/api")
-app.include_router(chat_router.router, prefix="/api")
-app.include_router(sessions_router.router, prefix="/api")
-app.include_router(messages_router.router, prefix="/api")
-app.include_router(images_router.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(chat.router, prefix="/api")
+app.include_router(sessions.router, prefix="/api")
+app.include_router(messages.router, prefix="/api")
+app.include_router(images.router, prefix="/api")
 
 
 # Root endpoint
