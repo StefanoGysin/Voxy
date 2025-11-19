@@ -52,7 +52,7 @@ from .nodes.entry_router import entry_router
 from agents.translator import create_translator_node, create_translator_tool
 from .nodes.vision_bypass import vision_bypass_node
 from .nodes.vision_node import create_vision_tool
-from .nodes.weather_node import create_weather_tool
+from agents.weather import create_weather_tool
 
 
 def _get_supervisor_instructions() -> str:
