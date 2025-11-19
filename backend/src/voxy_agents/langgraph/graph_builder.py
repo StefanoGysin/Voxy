@@ -49,7 +49,7 @@ from .graph_state import VoxyState
 from agents.calculator import create_calculator_tool
 from .nodes.corrector_node import create_corrector_tool
 from .nodes.entry_router import entry_router
-from .nodes.translator_node import create_translator_node, create_translator_tool
+from agents.translator import create_translator_node, create_translator_tool
 from .nodes.vision_bypass import vision_bypass_node
 from .nodes.vision_node import create_vision_tool
 from .nodes.weather_node import create_weather_tool
