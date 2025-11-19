@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import HTTPException, Query, WebSocket, status
 from loguru import logger
 
-from platform.auth import TokenData, verify_token
+from src.platform.auth import TokenData, verify_token
 
 
 async def get_websocket_token(
@@ -18,16 +18,16 @@ async def get_websocket_token(
 ) -> TokenData:
     """
     Mandatory WebSocket authentication dependency.
-    
+
     Validates JWT token and returns TokenData or closes connection with 1008 (Policy Violation).
-    
+
     Args:
         websocket: WebSocket connection instance
         token: JWT token from query parameter
-        
+
     Returns:
         TokenData with user information
-        
+
     Raises:
         HTTPException: If authentication fails
     """
@@ -43,8 +43,7 @@ async def get_websocket_token(
 
     try:
         logger.bind(event="WEBSOCKET|AUTH_ATTEMPT").info(
-            "Attempting WebSocket JWT validation",
-            token_preview=token[:20] + "..."
+            "Attempting WebSocket JWT validation", token_preview=token[:20] + "..."
         )
 
         # Use the same verification as the rest of the API
@@ -53,22 +52,20 @@ async def get_websocket_token(
         logger.bind(event="WEBSOCKET|AUTH_SUCCESS").info(
             "WebSocket authenticated",
             user_id=token_data.user_id[:16],
-            email=token_data.email
+            email=token_data.email,
         )
         return token_data
-        
+
     except HTTPException as e:
         logger.bind(event="WEBSOCKET|AUTH_FAILED").warning(
-            "WebSocket authentication failed",
-            detail=e.detail
+            "WebSocket authentication failed", detail=e.detail
         )
         await websocket.close(code=1008, reason=f"Authentication failed: {e.detail}")
         raise
-        
+
     except Exception as e:
         logger.bind(event="WEBSOCKET|AUTH_ERROR").error(
-            "WebSocket authentication error",
-            error=str(e)
+            "WebSocket authentication error", error=str(e)
         )
         await websocket.close(code=1008, reason="Authentication error")
         raise HTTPException(

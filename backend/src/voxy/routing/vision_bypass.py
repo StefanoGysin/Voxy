@@ -10,7 +10,7 @@ from typing import Any
 from langchain_core.messages import AIMessage
 from loguru import logger
 
-from agents.vision import create_vision_node
+from src.agents.vision import create_vision_node
 from voxy_agents.langgraph.graph_state import VoxyState, update_context
 
 

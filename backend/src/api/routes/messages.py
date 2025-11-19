@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 from pydantic import BaseModel
 
-from ...core.database.supabase_integration import SupabaseIntegration
-from ..middleware.auth import User, get_current_active_user
-from ..models import (
+from src.integrations.supabase.database import SupabaseIntegration
+from src.platform.auth import User, get_current_active_user
+from voxy_agents.api.models import (
     MessageResponse,
     MessagesListResponse,
     SearchRequest,

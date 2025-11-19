@@ -26,11 +26,11 @@ from fastapi import (
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
-from ..middleware.auth import User, get_current_user
-from ..middleware.supabase_client import (
+from src.integrations.supabase import (
     get_supabase_client,
     get_supabase_service_client,
 )
+from src.platform.auth import User, get_current_user
 
 router = APIRouter(
     prefix="/images",

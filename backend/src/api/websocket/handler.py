@@ -9,8 +9,7 @@ import json
 import uuid
 from datetime import datetime
 
-from fastapi import WebSocket
-from fastapi.exceptions import WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
 
 from voxy_agents.langgraph_main import get_voxy_system
@@ -25,7 +24,7 @@ async def handle_websocket_connection(
 ):
     """
     Handle WebSocket connection lifecycle and messages.
-    
+
     Args:
         websocket: WebSocket connection instance
         user_id: Authenticated user ID from JWT
@@ -63,14 +62,11 @@ async def handle_websocket_connection(
     except WebSocketDisconnect:
         manager.disconnect(user_id)
         logger.bind(event="WEBSOCKET|DISCONNECT").info(
-            "WebSocket client disconnected",
-            user_id=user_id[:16]
+            "WebSocket client disconnected", user_id=user_id[:16]
         )
     except Exception as e:
         logger.bind(event="WEBSOCKET|ERROR").error(
-            "WebSocket error",
-            user_id=user_id[:16],
-            error=str(e)
+            "WebSocket error", user_id=user_id[:16], error=str(e)
         )
         manager.disconnect(user_id)
 
@@ -89,7 +85,7 @@ async def _handle_ping(user_id: str):
 async def _handle_chat_message(user_id: str, message_data: dict):
     """
     Handle chat message from user.
-    
+
     Args:
         user_id: User identifier
         message_data: Message dict with 'message', optional 'session_id', 'image_url'
@@ -116,15 +112,13 @@ async def _handle_chat_message(user_id: str, message_data: dict):
         if frontend_session_id:
             session_id = frontend_session_id
             logger.bind(event="WEBSOCKET|SESSION").info(
-                "Using frontend session_id",
-                session_id=session_id
+                "Using frontend session_id", session_id=session_id
             )
         else:
             # Fallback: Generate session ID (UUID format for Supabase compatibility)
             session_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"voxy.session.{user_id}"))
             logger.bind(event="WEBSOCKET|SESSION").warning(
-                "No session_id from frontend, using fallback",
-                session_id=session_id
+                "No session_id from frontend, using fallback", session_id=session_id
             )
 
         # Debug logging for image URL
@@ -132,7 +126,7 @@ async def _handle_chat_message(user_id: str, message_data: dict):
             logger.bind(event="WEBSOCKET|IMAGE").debug(
                 "Image URL detected",
                 message_preview=user_message[:50],
-                image_url_length=len(image_url)
+                image_url_length=len(image_url),
             )
 
         # Process with VOXY orchestrator
@@ -140,7 +134,7 @@ async def _handle_chat_message(user_id: str, message_data: dict):
             "Processing with LangGraph orchestrator",
             session_id=session_id,
             user_id=user_id[:16],
-            has_image=bool(image_url)
+            has_image=bool(image_url),
         )
 
         voxy_system = get_voxy_system()
@@ -156,7 +150,7 @@ async def _handle_chat_message(user_id: str, message_data: dict):
             "LangGraph response extracted",
             response_type=type(response).__name__,
             response_length=len(response) if response else 0,
-            preview=response[:200] if response else "EMPTY"
+            preview=response[:200] if response else "EMPTY",
         )
 
         processing_time = (datetime.now() - start_time).total_seconds()
@@ -182,7 +176,7 @@ async def _handle_chat_message(user_id: str, message_data: dict):
             "Sending WebSocket response",
             user_id=user_id[:16],
             message_length=len(ws_message["message"]) if ws_message["message"] else 0,
-            processing_time=processing_time
+            processing_time=processing_time,
         )
 
         # Send response
@@ -191,14 +185,12 @@ async def _handle_chat_message(user_id: str, message_data: dict):
         logger.bind(event="WEBSOCKET|COMPLETE").info(
             "WebSocket message sent successfully",
             user_id=user_id[:16],
-            chars_sent=len(ws_message["message"]) if ws_message["message"] else 0
+            chars_sent=len(ws_message["message"]) if ws_message["message"] else 0,
         )
 
     except Exception as e:
         logger.bind(event="WEBSOCKET|PROCESSING_ERROR").error(
-            "Error processing WebSocket message",
-            user_id=user_id[:16],
-            error=str(e)
+            "Error processing WebSocket message", user_id=user_id[:16], error=str(e)
         )
         await manager.send_message(
             user_id,

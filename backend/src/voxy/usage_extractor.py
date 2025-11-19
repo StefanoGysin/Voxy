@@ -20,11 +20,12 @@ from langchain_core.messages import AIMessage, ToolMessage
 from loguru import logger
 
 from voxy_agents.langgraph.graph_state import VoxyState
-from voxy_agents.langgraph.usage_callback import (
+from voxy_agents.utils.usage_tracker import SubagentInfo, UsageMetrics
+
+from .usage_callback import (
     ToolInvocationData,
     UsageCallbackHandler,
 )
-from voxy_agents.utils.usage_tracker import SubagentInfo, UsageMetrics
 
 try:
     from litellm import cost_per_token

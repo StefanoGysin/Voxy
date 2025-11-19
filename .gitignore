@@ -103,6 +103,7 @@ insomnia_collection.json
 test_image.png
 coverage.json
 .claude
+.playwright-mcp
 
 # LangGraph SQLite Checkpointer databases
 *.db

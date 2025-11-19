@@ -6,7 +6,7 @@ from functools import lru_cache
 
 from supabase import Client, create_client
 
-from ...config.settings import settings
+from voxy_agents.config.settings import settings
 
 
 @lru_cache
