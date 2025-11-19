@@ -47,7 +47,7 @@ from ..config.models_config import load_orchestrator_config
 from .checkpointer import CheckpointerType, create_checkpointer
 from .graph_state import VoxyState
 from agents.calculator import create_calculator_tool
-from .nodes.corrector_node import create_corrector_tool
+from agents.corrector import create_corrector_tool
 from .nodes.entry_router import entry_router
 from agents.translator import create_translator_node, create_translator_tool
 from .nodes.vision_bypass import vision_bypass_node
