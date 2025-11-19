@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
-from voxy_agents.api.middleware.logging_context import LoggingContextMiddleware
+from .middleware import LoggingContextMiddleware
 from .routes import auth, chat, images, messages, sessions
 from voxy_agents.config.models_config import load_orchestrator_config
 from voxy_agents.langgraph_main import get_voxy_system
