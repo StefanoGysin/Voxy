@@ -16,8 +16,8 @@ from fastapi.security import (
 from pydantic import BaseModel
 
 from ...config.settings import settings
-from ...core.auth_token_manager import token_manager
-from ..middleware.auth import User, get_current_user
+from integrations.redis import token_manager
+from platform.auth import User, get_current_user
 from ..middleware.supabase_client import get_supabase_client
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
