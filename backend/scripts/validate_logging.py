@@ -76,7 +76,6 @@ def validate_phase_2_masking():
     print("\n🔍 Testando mascaramento de dados sensíveis\n")
 
     from loguru import logger
-
     from voxy_agents.config.log_filters import mask_sensitive_data
 
     output = []

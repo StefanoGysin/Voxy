@@ -8,7 +8,6 @@ Focuses on P0 components: CRUD operations, session persistence, error scenarios.
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.voxy_agents.core.database.models import ChatSession, Message
 from src.voxy_agents.core.database.supabase_integration import SupabaseIntegration
 

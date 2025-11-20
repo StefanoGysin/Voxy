@@ -84,7 +84,6 @@ async def test_translator(args):
 async def test_translator_langgraph(args):
     """Test translator with LangGraph engine."""
     from langgraph.graph import END, START, StateGraph
-
     from voxy_agents.langgraph.checkpointer import (
         CheckpointerType,
         create_checkpointer,

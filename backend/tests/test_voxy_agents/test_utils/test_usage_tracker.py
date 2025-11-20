@@ -8,7 +8,6 @@ following OpenAI Agents SDK and LiteLLM patterns.
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.voxy_agents.utils.usage_tracker import (
     SubagentInfo,
     UsageMetrics,

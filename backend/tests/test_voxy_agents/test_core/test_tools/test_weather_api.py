@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-
 from src.voxy_agents.core.tools.weather_api import WeatherAPI
 
 

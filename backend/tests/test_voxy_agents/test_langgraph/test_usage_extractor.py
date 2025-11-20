@@ -5,7 +5,6 @@ Tests extraction logic for converting LangGraph state/callbacks to usage_tracker
 """
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-
 from voxy_agents.langgraph.graph_state import create_initial_state
 from voxy_agents.langgraph.usage_callback import (
     ToolInvocationData,

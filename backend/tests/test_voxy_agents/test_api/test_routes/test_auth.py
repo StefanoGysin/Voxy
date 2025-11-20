@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-
 from src.voxy_agents.api.routes.auth import (
     LoginResponse,
     SignupRequest,

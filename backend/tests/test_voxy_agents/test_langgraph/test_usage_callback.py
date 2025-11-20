@@ -7,7 +7,6 @@ Tests the callback handler's ability to capture LLM usage events and tool invoca
 from uuid import uuid4
 
 from langchain_core.outputs import LLMResult
-
 from voxy_agents.langgraph.usage_callback import (
     ToolInvocationData,
     UsageCallbackHandler,

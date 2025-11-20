@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 class MessageType(str, Enum):
     """WebSocket message types."""
-    
+
     CHAT = "chat"
     RESPONSE = "response"
     PROCESSING = "processing"
@@ -27,7 +27,7 @@ class MessageType(str, Enum):
 class WebSocketMessage(BaseModel):
     """
     WebSocket message model with vision support.
-    
+
     Used for both incoming (user) and outgoing (assistant) messages.
     """
 
@@ -40,7 +40,7 @@ class WebSocketMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """User chat request via WebSocket."""
-    
+
     message: str
     session_id: Optional[str] = None
     image_url: Optional[str] = None
@@ -48,7 +48,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """Assistant chat response via WebSocket."""
-    
+
     type: str = MessageType.RESPONSE
     message: str
     session_id: str

@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from fastapi.websockets import WebSocket
-
 from src.voxy_agents.api.fastapi_server import (
     ConnectionManager,
     SystemStatus,

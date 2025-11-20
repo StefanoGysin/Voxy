@@ -6,7 +6,7 @@ Provides database client, authentication, and storage services.
 Public API:
     - get_supabase_client(): Get Supabase client with anon key
     - get_supabase_service_client(): Get Supabase client with service_role key (full access)
-    
+
 Database operations are available in .database module (for future imports if needed).
 """
 

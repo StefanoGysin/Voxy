@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
-
 from src.voxy_agents.api.middleware.vision_rate_limiter import (
     VisionRateLimiter,
     get_vision_rate_limiter,

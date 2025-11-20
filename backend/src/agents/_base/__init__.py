@@ -8,7 +8,7 @@ This module provides:
 """
 
 from .agent import BaseAgent, SyncAgent
-from .node import create_simple_node, create_lazy_node, get_or_create_node
+from .node import create_lazy_node, create_simple_node, get_or_create_node
 
 __all__ = [
     "BaseAgent",

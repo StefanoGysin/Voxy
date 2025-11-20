@@ -10,7 +10,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from PIL import Image as PILImage
-
 from src.voxy_agents.api.routes.images import (
     MAX_FILE_SIZE,
     generate_storage_path,
