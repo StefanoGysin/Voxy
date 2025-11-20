@@ -148,10 +148,10 @@ class WeatherAPI:
                     daily_forecasts[date].append(item)
 
                 # Format response
-                forecast_data = []
+                forecast_data: list[dict[str, Any]] = []
                 for date, forecasts in list(daily_forecasts.items())[:days]:
-                    day_data = {"date": date, "forecasts": []}
-                    forecasts_list = day_data["forecasts"]
+                    day_data: dict[str, Any] = {"date": date, "forecasts": []}
+                    forecasts_list: list[dict[str, Any]] = day_data["forecasts"]
 
                     for forecast in forecasts:
                         forecasts_list.append(

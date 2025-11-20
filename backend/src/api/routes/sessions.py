@@ -92,7 +92,9 @@ async def create_session(
     try:
         session = await db.create_session(user_id=current_user.id, title=request.title)
 
-        return CreateSessionResponse(id=session.id, title=session.title)
+        return CreateSessionResponse(
+            id=session.id, title=session.title or "Untitled Session"
+        )
 
     except Exception as e:
         raise HTTPException(
@@ -231,21 +233,26 @@ async def get_session_messages(
 
         # Get messages with pagination using existing methods
         session_context = await db.get_session_context(
-            session_id=session_id, limit=per_page, offset=(page - 1) * per_page
+            session_id=session_id, limit=per_page
         )
+
+        # Apply offset manually since method doesn't support it
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_context = session_context[start_idx:end_idx]
 
         # Convert to response format
         messages = []
-        for msg in session_context:
+        for msg in paginated_context:
             messages.append(
                 MessageResponse(
-                    id=msg.id,
-                    session_id=msg.session_id,
-                    content=msg.content,
-                    role=msg.role,
-                    agent_type=msg.agent_type,
-                    metadata=msg.metadata or {},
-                    created_at=msg.created_at,
+                    id=msg["id"],
+                    session_id=msg["session_id"],
+                    content=msg["content"],
+                    role=msg["role"],
+                    agent_type=msg.get("agent_type"),
+                    metadata=msg.get("metadata") or {},
+                    created_at=msg["created_at"],
                 )
             )
 
@@ -313,7 +320,7 @@ async def search_user_messages(
             matching_messages = [
                 msg
                 for msg in session_context
-                if request.query.lower() in msg.content.lower()
+                if request.query.lower() in msg["content"].lower()
             ]
 
         else:
@@ -331,7 +338,7 @@ async def search_user_messages(
                 session_matches = [
                     msg
                     for msg in session_context
-                    if request.query.lower() in msg.content.lower()
+                    if request.query.lower() in msg["content"].lower()
                 ]
                 matching_messages.extend(session_matches)
 
@@ -345,7 +352,7 @@ async def search_user_messages(
             session_title = "Unknown Session"
             try:
                 session_detail = await db.get_session_detail(
-                    session_id=msg.session_id, user_id=current_user.id
+                    session_id=msg["session_id"], user_id=current_user.id
                 )
                 if session_detail:
                     session_title = session_detail.title or "Untitled Session"
@@ -353,22 +360,22 @@ async def search_user_messages(
                 pass  # Keep default title
 
             # Simple highlighting
-            highlighted_content = msg.content.replace(
+            highlighted_content = msg["content"].replace(
                 request.query, f"<mark>{request.query}</mark>"
             )
 
             search_results.append(
                 SearchResultItem(
-                    id=msg.id,
-                    session_id=msg.session_id,
+                    id=msg["id"],
+                    session_id=msg["session_id"],
                     session_title=session_title,
-                    content=msg.content,
+                    content=msg["content"],
                     highlighted_content=highlighted_content,
-                    role=msg.role,
-                    agent_type=msg.agent_type,
-                    metadata=msg.metadata or {},
+                    role=msg["role"],
+                    agent_type=msg.get("agent_type"),
+                    metadata=msg.get("metadata") or {},
                     relevance_score=0.75,  # Simplified scoring
-                    created_at=msg.created_at,
+                    created_at=msg["created_at"],
                 )
             )
 

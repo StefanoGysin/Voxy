@@ -122,10 +122,19 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         expiration = datetime.now(timezone.utc) + timedelta(
             seconds=settings.jwt_access_token_expire_seconds
         )
+
+        # Validate email before storing
+        user_email = response.user.email
+        if not user_email:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User email not available",
+            )
+
         await token_manager.store_token_info(
             jti=jti,
             user_id=response.user.id,
-            email=response.user.email,
+            email=user_email,
             expiration=expiration,
         )
 
@@ -194,10 +203,19 @@ async def signup(signup_data: SignupRequest):
             expiration = datetime.now(timezone.utc) + timedelta(
                 seconds=settings.jwt_access_token_expire_seconds
             )
+
+            # Validate email before storing
+            signup_email = response.user.email
+            if not signup_email:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="User email not available",
+                )
+
             await token_manager.store_token_info(
                 jti=jti,
                 user_id=response.user.id,
-                email=response.user.email,
+                email=signup_email,
                 expiration=expiration,
             )
 

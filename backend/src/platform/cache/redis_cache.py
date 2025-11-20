@@ -65,6 +65,8 @@ class RedisCache:
         if not self._redis:
             await self.connect()
 
+        assert self._redis is not None, "Redis connection failed"
+
         try:
             value = await self._redis.get(key)
             if value:
@@ -96,6 +98,8 @@ class RedisCache:
         """
         if not self._redis:
             await self.connect()
+
+        assert self._redis is not None, "Redis connection failed"
 
         try:
             serialized_value = json.dumps(value, default=str)
@@ -130,6 +134,8 @@ class RedisCache:
         if not self._redis:
             await self.connect()
 
+        assert self._redis is not None, "Redis connection failed"
+
         try:
             result = bool(await self._redis.delete(key))
             logger.bind(event="REDIS_CACHE|DELETE").debug(
@@ -154,6 +160,8 @@ class RedisCache:
         """
         if not self._redis:
             await self.connect()
+
+        assert self._redis is not None, "Redis connection failed"
 
         try:
             return bool(await self._redis.exists(key))
@@ -294,6 +302,8 @@ class RedisCache:
         if not self._redis:
             await self.connect()
 
+        assert self._redis is not None, "Redis connection failed"
+
         try:
             # Use Redis INCR/INCRBY for atomic increment
             if amount == 1:
@@ -328,6 +338,8 @@ class RedisCache:
         """
         if not self._redis:
             await self.connect()
+
+        assert self._redis is not None, "Redis connection failed"
 
         try:
             # Use Redis INCRBYFLOAT for atomic float increment

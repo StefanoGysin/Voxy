@@ -49,6 +49,13 @@ async def get_websocket_token(
         # Use the same verification as the rest of the API
         token_data = await verify_token(token)
 
+        # Validate token data
+        if not token_data.user_id or not token_data.email:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing user information",
+            )
+
         logger.bind(event="WEBSOCKET|AUTH_SUCCESS").info(
             "WebSocket authenticated",
             user_id=token_data.user_id[:16],

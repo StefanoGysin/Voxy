@@ -8,7 +8,7 @@ following the separation of concerns principle:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from loguru import logger
@@ -32,7 +32,7 @@ class BaseAgent(ABC):
         ...     def get_instructions(self) -> str:
         ...         return "You are a helpful assistant"
         ...
-        ...     async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        ...     async def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         ...         # Implementation here
         ...         pass
     """
@@ -64,7 +64,7 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    async def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """
         Process agent logic.
 
@@ -120,6 +120,6 @@ class SyncAgent(ABC):
         pass
 
     @abstractmethod
-    def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Process agent logic synchronously."""
         pass

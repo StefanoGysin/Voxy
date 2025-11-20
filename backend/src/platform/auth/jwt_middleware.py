@@ -122,6 +122,14 @@ async def get_current_user(
     # Verify token and extract data (now async)
     token_data = await verify_token(credentials.credentials)
 
+    # Validate required fields
+    if not token_data.user_id or not token_data.email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing user information",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # Always use token data as the primary source
     # Supabase auth.get_user() often fails in production
     return User(

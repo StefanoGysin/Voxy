@@ -6,9 +6,9 @@ node functions from agent classes, maintaining separation between
 business logic (agents) and infrastructure (LangGraph).
 """
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langchain_litellm import ChatLiteLLM
 from loguru import logger
 
@@ -59,7 +59,7 @@ def create_simple_node(
         provider=llm_config.provider,
     )
 
-    def node_function(state: Dict[str, Any]) -> Dict[str, Any]:
+    def node_function(state: dict[str, Any]) -> dict[str, Any]:
         """
         LangGraph node function.
 
@@ -94,7 +94,9 @@ def create_simple_node(
         # Log completion
         logger.bind(event=f"LANGGRAPH|{agent_name.upper()}_NODE").info(
             f"{agent_name.capitalize()} completed",
-            response_length=len(response.content) if hasattr(response, "content") else 0,
+            response_length=(
+                len(response.content) if hasattr(response, "content") else 0
+            ),
         )
 
         # Return state update
@@ -103,9 +105,7 @@ def create_simple_node(
     return node_function
 
 
-def create_lazy_node(
-    node_factory: Callable[[], Callable]
-) -> Callable:
+def create_lazy_node(node_factory: Callable[[], Callable]) -> Callable:
     """
     Create a lazy-initialized node wrapper.
 
@@ -139,13 +139,10 @@ def create_lazy_node(
 
 
 # Singleton pattern for global node instances
-_node_instances: Dict[str, Callable] = {}
+_node_instances: dict[str, Callable] = {}
 
 
-def get_or_create_node(
-    node_name: str,
-    factory: Callable[[], Callable]
-) -> Callable:
+def get_or_create_node(node_name: str, factory: Callable[[], Callable]) -> Callable:
     """
     Get cached node instance or create new one.
 
@@ -173,7 +170,5 @@ def get_or_create_node(
     """
     if node_name not in _node_instances:
         _node_instances[node_name] = factory()
-        logger.bind(event="NODE_CACHE").debug(
-            f"Created and cached node: {node_name}"
-        )
+        logger.bind(event="NODE_CACHE").debug(f"Created and cached node: {node_name}")
     return _node_instances[node_name]

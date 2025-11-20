@@ -90,15 +90,15 @@ async def get_user_messages(
 
             for msg in session_context:
                 # Apply filters
-                if role_filter and msg.role != role_filter:
+                if role_filter and msg["role"] != role_filter:
                     continue
-                if agent_filter and msg.agent_type != agent_filter:
+                if agent_filter and msg.get("agent_type") != agent_filter:
                     continue
 
                 all_messages.append(msg)
 
         # Sort by creation date (newest first)
-        all_messages.sort(key=lambda x: x.created_at, reverse=True)
+        all_messages.sort(key=lambda x: x["created_at"], reverse=True)
 
         # Apply pagination
         total = len(all_messages)
@@ -111,14 +111,16 @@ async def get_user_messages(
         for msg in paginated_messages:
             messages.append(
                 MessageResponse(
-                    id=msg.id,
-                    session_id=msg.session_id,
-                    session_title=session_titles.get(msg.session_id, "Unknown Session"),
-                    content=msg.content,
-                    role=msg.role,
-                    agent_type=msg.agent_type,
-                    metadata=msg.metadata or {},
-                    created_at=msg.created_at,
+                    id=msg["id"],
+                    session_id=msg["session_id"],
+                    session_title=session_titles.get(
+                        msg["session_id"], "Unknown Session"
+                    ),
+                    content=msg["content"],
+                    role=msg["role"],
+                    agent_type=msg.get("agent_type"),
+                    metadata=msg.get("metadata") or {},
+                    created_at=msg["created_at"],
                 )
             )
 
@@ -202,23 +204,26 @@ async def advanced_search_messages(
 
             for i, msg in enumerate(session_context):
                 # Apply text search
-                if request.query.lower() not in msg.content.lower():
+                if request.query.lower() not in msg["content"].lower():
                     continue
 
                 # Apply filters
-                if request.role_filter and msg.role != request.role_filter:
+                if request.role_filter and msg["role"] != request.role_filter:
                     continue
-                if request.agent_filter and msg.agent_type != request.agent_filter:
+                if (
+                    request.agent_filter
+                    and msg.get("agent_type") != request.agent_filter
+                ):
                     continue
-                if request.date_from and msg.created_at < request.date_from:
+                if request.date_from and msg["created_at"] < request.date_from:
                     continue
-                if request.date_to and msg.created_at > request.date_to:
+                if request.date_to and msg["created_at"] > request.date_to:
                     continue
 
                 # Calculate relevance (simple scoring)
                 relevance = 0.5
                 query_words = request.query.lower().split()
-                content_lower = msg.content.lower()
+                content_lower = msg["content"].lower()
 
                 for word in query_words:
                     if word in content_lower:
@@ -234,12 +239,12 @@ async def advanced_search_messages(
                 context_after = None
 
                 if i > 0:
-                    context_before = session_context[i - 1].content[:100] + "..."
+                    context_before = session_context[i - 1]["content"][:100] + "..."
                 if i < len(session_context) - 1:
-                    context_after = session_context[i + 1].content[:100] + "..."
+                    context_after = session_context[i + 1]["content"][:100] + "..."
 
                 # Create search result
-                highlighted_content = msg.content
+                highlighted_content = msg["content"]
                 for word in query_words:
                     highlighted_content = highlighted_content.replace(
                         word, f"<mark>{word}</mark>"
@@ -354,8 +359,8 @@ async def get_message_stats(
         total_messages = 0
         user_messages = 0
         assistant_messages = 0
-        agents_used = set()
-        agent_counts = {}
+        agents_used: set[str] = set()
+        agent_counts: dict[str, int] = {}
         earliest_date = None
         latest_date = None
 
@@ -367,22 +372,23 @@ async def get_message_stats(
             for msg in session_context:
                 total_messages += 1
 
-                if msg.role == "user":
+                if msg["role"] == "user":
                     user_messages += 1
-                elif msg.role == "assistant":
+                elif msg["role"] == "assistant":
                     assistant_messages += 1
 
-                if msg.agent_type:
-                    agents_used.add(msg.agent_type)
-                    agent_counts[msg.agent_type] = (
-                        agent_counts.get(msg.agent_type, 0) + 1
+                if msg.get("agent_type"):
+                    agent_type_val = msg["agent_type"]
+                    agents_used.add(agent_type_val)
+                    agent_counts[agent_type_val] = (
+                        agent_counts.get(agent_type_val, 0) + 1
                     )
 
                 # Track date range
-                if earliest_date is None or msg.created_at < earliest_date:
-                    earliest_date = msg.created_at
-                if latest_date is None or msg.created_at > latest_date:
-                    latest_date = msg.created_at
+                if earliest_date is None or msg["created_at"] < earliest_date:
+                    earliest_date = msg["created_at"]
+                if latest_date is None or msg["created_at"] > latest_date:
+                    latest_date = msg["created_at"]
 
         # Top agents by usage
         top_agents = [

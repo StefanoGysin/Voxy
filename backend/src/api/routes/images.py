@@ -365,9 +365,8 @@ async def upload_image(
         # Upload to Supabase Storage with authenticated client
         supabase = get_supabase_client()
 
-        # Set JWT token for this session to enable RLS
-        if hasattr(current_user, "jwt_token") and current_user.jwt_token:
-            supabase.auth.set_session(current_user.jwt_token)
+        # Note: Auth session is managed via JWT in headers, not via set_session
+        # RLS is enforced through the Authorization header in API requests
 
         logger.bind(event="IMAGES_API|UPLOAD_START").info(
             "Starting image upload",
@@ -781,7 +780,9 @@ async def update_image_metadata(
             )
 
         # Build update data
-        update_fields = {}
+        from typing import Any
+
+        update_fields: dict[str, Any] = {}
         if update_data.description is not None:
             update_fields["description"] = update_data.description
         if update_data.tags is not None:

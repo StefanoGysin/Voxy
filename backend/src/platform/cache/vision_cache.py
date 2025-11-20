@@ -256,14 +256,16 @@ class VisionCache:
                     return hashlib.md5(image_url.encode()).hexdigest()
 
             # Redimensionar para comparação consistente
-            image = image.resize((32, 32), Image.Resampling.LANCZOS)
+            resized_image = image.resize((32, 32), Image.Resampling.LANCZOS)
 
             # Converter para escala de cinza para hash perceptual simples
-            if image.mode != "L":
-                image = image.convert("L")
+            if resized_image.mode != "L":
+                gray_image = resized_image.convert("L")
+            else:
+                gray_image = resized_image
 
             # Gerar hash baseado nos pixels
-            pixels = list(image.getdata())
+            pixels = list(gray_image.getdata())
             pixel_str = "".join(str(p) for p in pixels)
             return hashlib.sha256(pixel_str.encode()).hexdigest()[
                 :16
@@ -322,7 +324,7 @@ class VisionCache:
             if not self.redis_client:
                 return None
 
-            data = self.redis_client.get(key)
+            data = await self.redis_client.get(key)
             if data:
                 return json.loads(data)
             return None

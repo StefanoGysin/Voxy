@@ -45,7 +45,7 @@ class SessionManager:
         """
         session_id = str(uuid4())
 
-        session_data = {
+        session_data: dict[str, Any] = {
             "id": session_id,
             "user_id": user_id,
             "created_at": datetime.now(),
