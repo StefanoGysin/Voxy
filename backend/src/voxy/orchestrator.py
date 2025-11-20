@@ -34,7 +34,7 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage
 from loguru import logger
 
-from voxy_agents.utils.usage_tracker import log_usage_metrics
+from shared.utils.usage_tracker import log_usage_metrics
 
 from .checkpointer import CheckpointerType, get_checkpoint_config
 from .graph_builder import create_phase2_graph

@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage
 from loguru import logger
 
 from src.agents.vision import create_vision_node
-from voxy_agents.langgraph.graph_state import VoxyState, update_context
+from voxy.graph_state import VoxyState, update_context
 
 
 def vision_bypass_node(state: VoxyState) -> dict[str, Any]:

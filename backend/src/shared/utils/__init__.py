@@ -5,17 +5,18 @@ Utility functions and helpers used across the application.
 Migrated from voxy_agents/utils/.
 
 Public API:
-    - llm_factory: LLM creation utilities
     - logger_helper: Logging helpers
     - usage_tracker: Token usage tracking utilities
+
+Note: llm_factory was removed as it contained OpenAI Agents SDK imports.
+The new architecture uses LiteLLM directly through models_config.py.
 """
 
-from .llm_factory import create_litellm_model
-from .logger_helper import log_with_context
+from .logger_helper import LoggedComponent, create_component_logger
 from .usage_tracker import log_usage_metrics
 
 __all__ = [
-    "create_litellm_model",
-    "log_with_context",
+    "create_component_logger",
+    "LoggedComponent",
     "log_usage_metrics",
 ]

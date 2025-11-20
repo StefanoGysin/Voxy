@@ -1,6 +1,8 @@
 """
 Configuration settings for VOXY Agents system.
 Simple configuration using environment variables.
+
+Migrated from voxy_agents/config/settings.py to shared/config/.
 """
 
 import os

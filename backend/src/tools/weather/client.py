@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from voxy_agents.config.settings import settings
+from shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

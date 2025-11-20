@@ -14,7 +14,7 @@ from typing import Literal
 from langchain_core.messages import HumanMessage
 from loguru import logger
 
-from voxy_agents.langgraph.graph_state import VoxyState
+from voxy.graph_state import VoxyState
 
 
 def detect_vision_bypass(message: str, image_url: str | None) -> bool:

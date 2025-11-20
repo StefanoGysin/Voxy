@@ -21,8 +21,8 @@ from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
 from loguru import logger
 
-from voxy_agents.config.models_config import load_weather_config
-from voxy_agents.langgraph.graph_state import VoxyState
+from shared.config.models_config import load_weather_config
+from voxy.graph_state import VoxyState
 
 
 def _get_weather_instructions() -> str:
@@ -200,9 +200,7 @@ def create_weather_node() -> Callable:
         """
         messages = state["messages"]
         if not messages:
-            logger.bind(event="LANGGRAPH|WEATHER_NODE").warning(
-                "No messages in state"
-            )
+            logger.bind(event="LANGGRAPH|WEATHER_NODE").warning("No messages in state")
             return {"messages": [AIMessage(content="No weather query provided")]}
 
         # Build prompt with instructions + user message

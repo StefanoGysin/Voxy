@@ -1,5 +1,7 @@
 """
 Database models for VOXY Agents persistence.
+
+Migrated from voxy_agents/core/database/models.py to integrations/supabase/.
 """
 
 from datetime import datetime, timezone

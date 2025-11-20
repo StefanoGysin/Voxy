@@ -11,6 +11,8 @@ Arquitetura:
 - Sistema de sessões via SQLite checkpointer para contexto persistente
 - Análise avançada de imagens com Vision model configurável (VISION_MODEL)
 
+Migrated from voxy_agents/langgraph_main.py to voxy/main.py.
+
 ⚠️ ORDEM DE IMPORTS É CRÍTICA PARA LOGGING
 1️⃣ Configurar Loguru
 2️⃣ Instalar InterceptHandler
@@ -26,12 +28,12 @@ import os
 os.environ["LITELLM_LOG"] = "ERROR"  # Só erros críticos (evita duplicação DEBUG/INFO)
 
 # ===== 1️⃣ PRIMEIRO: Configurar Loguru =====
-from .config.logger_config import configure_logger
+from shared.config.logger_config import configure_logger
 
 configure_logger()
 
 # ===== 2️⃣ SEGUNDO: Instalar InterceptHandler ANTES de outros imports =====
-from .config.logger_config import setup_stdlib_intercept
+from shared.config.logger_config import setup_stdlib_intercept
 
 setup_stdlib_intercept()
 
@@ -41,8 +43,8 @@ from typing import Any, Optional
 
 from loguru import logger
 
-from .langgraph.checkpointer import CheckpointerType
-from .langgraph.orchestrator import get_langgraph_orchestrator
+from voxy.checkpointer import CheckpointerType
+from voxy.orchestrator import get_langgraph_orchestrator
 
 
 class VOXYSystem:
@@ -80,7 +82,7 @@ class VOXYSystem:
 
     def _log_system_summary(self):
         """Log LangGraph system initialization summary."""
-        from .config.models_config import load_vision_config
+        from shared.config.models_config import load_vision_config
 
         vision_config = load_vision_config()
 

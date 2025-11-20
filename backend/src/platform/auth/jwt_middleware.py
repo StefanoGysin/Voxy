@@ -12,8 +12,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from integrations.redis import token_manager
-from voxy_agents.config.settings import settings
+from shared.config.settings import settings
+from src.integrations.redis import token_manager
 
 # Security scheme for JWT tokens
 security = HTTPBearer()

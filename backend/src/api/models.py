@@ -3,6 +3,8 @@ Shared API models for VOXY Agents routes.
 
 Centralizes Pydantic models that are used across multiple API routers
 to eliminate duplication and prevent semantic drift between endpoints.
+
+Migrated from voxy_agents/api/models.py to api/models.py.
 """
 
 from datetime import datetime

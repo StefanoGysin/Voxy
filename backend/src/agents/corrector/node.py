@@ -18,8 +18,8 @@ from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
 from loguru import logger
 
-from voxy_agents.config.models_config import load_corrector_config
-from voxy_agents.langgraph.graph_state import VoxyState
+from shared.config.models_config import load_corrector_config
+from voxy.graph_state import VoxyState
 
 
 def _get_corrector_instructions() -> str:

@@ -6,16 +6,17 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from .client import (
-    get_supabase_client,
-    get_supabase_service_client,
-)
-from voxy_agents.core.database.models import (
+from src.integrations.supabase.models import (
     ChatSession,
     Message,
     MessageWithAgent,
     SessionDetail,
     SessionSummary,
+)
+
+from .client import (
+    get_supabase_client,
+    get_supabase_service_client,
 )
 
 logger = logging.getLogger(__name__)

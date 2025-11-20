@@ -12,7 +12,7 @@ from typing import Optional
 import redis
 from loguru import logger
 
-from voxy_agents.config.settings import settings
+from shared.config.settings import settings
 
 
 class TokenManager:

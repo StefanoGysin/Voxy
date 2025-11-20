@@ -23,6 +23,7 @@ Modules:
 from .checkpointer import CheckpointerType, create_checkpointer
 from .graph_builder import create_phase2_graph
 from .graph_state import VoxyState, create_initial_state
+from .main import VOXYSystem, get_voxy_system
 from .orchestrator import LangGraphOrchestrator
 from .routing import entry_router, vision_bypass_node
 
@@ -35,4 +36,6 @@ __all__ = [
     "create_phase2_graph",
     "entry_router",
     "vision_bypass_node",
+    "VOXYSystem",
+    "get_voxy_system",
 ]

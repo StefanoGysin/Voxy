@@ -19,11 +19,11 @@ from fastapi import Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+from shared.config.models_config import load_orchestrator_config
+from voxy.main import get_voxy_system
+
 from .middleware import LoggingContextMiddleware
 from .routes import auth, chat, images, messages, sessions
-from voxy_agents.config.models_config import load_orchestrator_config
-from voxy_agents.langgraph_main import get_voxy_system
-
 from .websocket import get_websocket_token, handle_websocket_connection
 
 
@@ -140,16 +140,14 @@ async def websocket_endpoint(
 ):
     """
     WebSocket endpoint for real-time communication.
-    
+
     Requires JWT authentication via query parameter: /ws/{user_id}?token=<jwt>
     Validates that URL user_id matches authenticated token user_id.
     """
     # Validate user_id matches token
     if user_id != token_data.user_id:
         logger.bind(event="WEBSOCKET|AUTH_MISMATCH").warning(
-            "User ID mismatch",
-            url_user_id=user_id,
-            token_user_id=token_data.user_id
+            "User ID mismatch", url_user_id=user_id, token_user_id=token_data.user_id
         )
         await websocket.close(
             code=1008,

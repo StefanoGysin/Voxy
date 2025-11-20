@@ -18,8 +18,8 @@ from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
 from loguru import logger
 
-from voxy_agents.config.models_config import load_translator_config
-from voxy_agents.langgraph.graph_state import VoxyState
+from shared.config.models_config import load_translator_config
+from voxy.graph_state import VoxyState
 
 
 def _get_translator_instructions() -> str:
@@ -165,7 +165,9 @@ def create_translator_tool():
     )
 
     @tool
-    def translate_text(text: str, target_language: str, source_language: str = "auto") -> str:
+    def translate_text(
+        text: str, target_language: str, source_language: str = "auto"
+    ) -> str:
         """
         Translate text from one language to another.
 

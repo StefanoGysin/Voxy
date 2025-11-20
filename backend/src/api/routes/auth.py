@@ -15,10 +15,10 @@ from fastapi.security import (
 )
 from pydantic import BaseModel
 
+from shared.config.settings import settings
 from src.integrations.redis import token_manager
 from src.integrations.supabase import get_supabase_client
 from src.platform.auth import User, get_current_user
-from voxy_agents.config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -135,6 +135,16 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         )
 
     except Exception as e:
+        # Log detailed error for debugging
+        from loguru import logger
+
+        logger.error(f"Login failed - Exception type: {type(e).__name__}")
+        logger.error(f"Login failed - Error message: {str(e)}")
+        logger.error(f"Login failed - Exception details: {repr(e)}")
+        import traceback
+
+        logger.error(f"Login failed - Traceback:\n{traceback.format_exc()}")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Authentication failed: {str(e)}",
