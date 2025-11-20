@@ -19,8 +19,8 @@ from fastapi import Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
-from shared.config.models_config import load_orchestrator_config
-from voxy.main import get_voxy_system
+from src.shared.config.models_config import load_orchestrator_config
+from src.voxy.main import get_voxy_system
 
 from .middleware import LoggingContextMiddleware
 from .routes import auth, chat, images, messages, sessions

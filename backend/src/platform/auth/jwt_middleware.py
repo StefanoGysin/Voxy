@@ -12,8 +12,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
-from shared.config.settings import settings
 from src.integrations.redis import token_manager
+from src.shared.config.settings import settings
 
 # Security scheme for JWT tokens
 security = HTTPBearer()

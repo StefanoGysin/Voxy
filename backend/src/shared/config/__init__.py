@@ -4,7 +4,7 @@ Shared configuration module for VOXY Agents system.
 Migrated from voxy_agents/config/.
 """
 
-from shared.config.models_config import (
+from src.shared.config.models_config import (
     OrchestratorModelConfig,
     SubagentModelConfig,
     VisionModelConfig,
@@ -15,7 +15,7 @@ from shared.config.models_config import (
     load_vision_config,
     load_weather_config,
 )
-from shared.config.settings import Settings, load_model_config, settings
+from src.shared.config.settings import Settings, load_model_config, settings
 
 __all__ = [
     "Settings",

@@ -12,7 +12,7 @@ from datetime import datetime
 from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from voxy.main import get_voxy_system
+from src.voxy.main import get_voxy_system
 
 from .manager import manager
 

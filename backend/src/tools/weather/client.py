@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from shared.config.settings import settings
+from src.shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

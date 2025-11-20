@@ -21,8 +21,8 @@ from langchain_core.tools import tool
 from langchain_litellm import ChatLiteLLM
 from loguru import logger
 
-from shared.config.models_config import load_weather_config
-from voxy.graph_state import VoxyState
+from src.shared.config.models_config import load_weather_config
+from src.voxy.graph_state import VoxyState
 
 
 def _get_weather_instructions() -> str:

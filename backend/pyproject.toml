@@ -79,6 +79,8 @@ ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
+explicit_package_bases = true
+namespace_packages = true
 warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -91,27 +93,6 @@ exclude = [
 ]
 ignore_missing_imports = true
 show_error_codes = true
-
-# Ignore specific modules with complex type issues
-[[tool.mypy.overrides]]
-module = "voxy_agents.api.routes.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "voxy_agents.core.sessions.*"  
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "voxy_agents.core.cache.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "voxy_agents.api.middleware.auth"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "voxy_agents.core.tools.weather_api"
-ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,7 +6,7 @@ from functools import lru_cache
 
 from supabase import Client, create_client
 
-from shared.config.settings import settings
+from src.shared.config.settings import settings
 
 
 @lru_cache

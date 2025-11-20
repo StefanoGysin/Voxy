@@ -15,10 +15,10 @@ from fastapi.security import (
 )
 from pydantic import BaseModel
 
-from shared.config.settings import settings
 from src.integrations.redis import token_manager
 from src.integrations.supabase import get_supabase_client
 from src.platform.auth import User, get_current_user
+from src.shared.config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 

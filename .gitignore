@@ -82,11 +82,10 @@ logs/
 *.tmp
 *.temp
 test-*.js
-VOXY_ORCHESTRATOR_LITELLM_PLAN.md
-VOXY_SYSTEM_FLOWCHART.md
 *.backup
 AGENTS.md
 HISTORY.md
+GEMINI.md
 .codex
 
 # OS

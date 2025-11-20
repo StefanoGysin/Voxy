@@ -43,12 +43,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import create_react_agent
 from loguru import logger
 
-from shared.config.models_config import load_orchestrator_config
 from src.agents.calculator import create_calculator_tool
 from src.agents.corrector import create_corrector_tool
 from src.agents.translator import create_translator_node, create_translator_tool
 from src.agents.vision import create_vision_tool
 from src.agents.weather import create_weather_tool
+from src.shared.config.models_config import load_orchestrator_config
 
 from .checkpointer import CheckpointerType, create_checkpointer
 from .graph_state import VoxyState

@@ -28,12 +28,12 @@ import os
 os.environ["LITELLM_LOG"] = "ERROR"  # Só erros críticos (evita duplicação DEBUG/INFO)
 
 # ===== 1️⃣ PRIMEIRO: Configurar Loguru =====
-from shared.config.logger_config import configure_logger
+from src.shared.config.logger_config import configure_logger
 
 configure_logger()
 
 # ===== 2️⃣ SEGUNDO: Instalar InterceptHandler ANTES de outros imports =====
-from shared.config.logger_config import setup_stdlib_intercept
+from src.shared.config.logger_config import setup_stdlib_intercept
 
 setup_stdlib_intercept()
 
@@ -82,7 +82,7 @@ class VOXYSystem:
 
     def _log_system_summary(self):
         """Log LangGraph system initialization summary."""
-        from shared.config.models_config import load_vision_config
+        from src.shared.config.models_config import load_vision_config
 
         vision_config = load_vision_config()
 
